@@ -1,0 +1,28 @@
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+
+[tasks.wasm_build]
+command = "wasm-pack"
+args = ["build", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
+
+
+[tasks.test]
+command = "wasm-pack"
+args = ["test", "--firefox", "--headless"]
+
+[tasks.build]
+dependencies = [
+    "format",
+    "wasm_build"
+]
+
+[tasks.serve]
+command = "miniserve"
+args = ["./static", "--index", "index.html"]
+dependencies = ["build"]
