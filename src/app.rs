@@ -9,12 +9,11 @@ pub struct App {}
 
 pub enum Msg {
     Random,
-    Start,
     Step,
     Reset,
-    Stop,
     ToggleCellule(usize),
     Tick(f64),
+    TickToggle,
 }
 
 impl Component for App {
@@ -214,12 +213,7 @@ impl Component for UniverseModel {
                 self.universe.randomize();
                 log!("Random");
             }
-            Msg::Start => {
-                if !self.active {
-                    self.active = true;
-                    log!("Start");
-                }
-            }
+
             Msg::Step => {
                 self.step();
             }
@@ -227,9 +221,14 @@ impl Component for UniverseModel {
                 self.universe.reset();
                 log!("Reset");
             }
-            Msg::Stop => {
-                self.active = false;
-                log!("Stop");
+            Msg::TickToggle => {
+                if !self.active {
+                    self.active = true;
+                    log!("Start");
+                } else {
+                    self.active = false;
+                    log!("Stop");
+                }
             }
             Msg::ToggleCellule(idx) => {
                 self.universe.toggle_cell(idx);
@@ -252,16 +251,14 @@ impl Component for UniverseModel {
     }
 
     fn view(&self) -> Html {
-        log!("game reflowed");
         html! {
             <section class="game-area">
                 <div> <fps::FpsModel fps_html=self.fps_html.clone() /></div>
                 <canvas ref=self.canvas_node_ref.clone()></canvas>
                 <div class="game-buttons">
-                    <button class="game-button" onclick=self.link.callback(|_| Msg::Random)>{ "Random" }</button>
+                    <button class="game-button" onclick=self.link.callback(|_| Msg::TickToggle)> {if self.active {"⏸"} else {"▶"}}</button>
+                    <button class="game-button" onclick=self.link.callback(|_| Msg::Random)>{ "Randomize" }</button>
                     <button class="game-button" onclick=self.link.callback(|_| Msg::Step)>{ "Step" }</button>
-                    <button class="game-button" onclick=self.link.callback(|_| Msg::Start)>{ "Start" }</button>
-                    <button class="game-button" onclick=self.link.callback(|_| Msg::Stop)>{ "Stop" }</button>
                     <button class="game-button" onclick=self.link.callback(|_| Msg::Reset)>{ "Reset" }</button>
                 </div>
             </section>

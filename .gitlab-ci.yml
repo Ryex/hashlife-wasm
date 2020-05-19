@@ -2,6 +2,9 @@
 # https://hub.docker.com/r/library/rust/tags/
 image: "rust:latest"
 
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+
 
 before_script:
   - cargo install wasm-pack
@@ -12,3 +15,7 @@ test:cargo:
   script:
     - rustc --version && cargo --version  && wasm-pack --version # Print version info for debugging
     - wasm-pack test --firefox --headless
+  cache:
+    paths:
+      - .cargo
+

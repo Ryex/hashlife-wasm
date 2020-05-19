@@ -8,7 +8,7 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 extern crate wasm_gameoflife;
-use wasm_gameoflife::Universe;
+use wasm_gameoflife::gameoflife::Universe;
 
 #[cfg(test)]
 pub fn input_spaceship() -> Universe {
@@ -38,6 +38,6 @@ pub fn test_tick() {
     let expected_universe = expected_spaceship();
 
     // Call `tick` and then see if the cells in the `Universe`s are the same.
-    input_universe.tick();
+    input_universe.step();
     assert_eq!(&input_universe.get_cells(), &expected_universe.get_cells());
 }
