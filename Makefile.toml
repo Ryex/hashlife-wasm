@@ -11,18 +11,28 @@ args = ["clean"]
 command = "wasm-pack"
 args = ["build", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
 
+[tasks.wasm_build_dev]
+command = "wasm-pack"
+args = ["build", "--dev", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
+
 
 [tasks.test]
 command = "wasm-pack"
 args = ["test", "--firefox", "--headless"]
 
-[tasks.build]
+[tasks.build_web]
 dependencies = [
     "format",
     "wasm_build"
 ]
 
+[tasks.build_web_dev]
+dependencies = [
+    "format",
+    "wasm_build_dev"
+]
+
 [tasks.serve]
 command = "miniserve"
 args = ["./static", "--index", "index.html"]
-dependencies = ["build"]
+dependencies = ["build_web_dev"]
