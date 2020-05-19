@@ -4,6 +4,7 @@
 mod utils;
 
 mod app;
+mod fps;
 mod gameoflife;
 
 use wasm_bindgen::prelude::*;
@@ -15,6 +16,5 @@ pub fn run_app() -> Result<(), JsValue> {
 
     log!("Starting!");
 
-    
     Ok(())
 }

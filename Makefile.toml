@@ -35,4 +35,9 @@ dependencies = [
 [tasks.serve]
 command = "miniserve"
 args = ["./static", "--index", "index.html"]
+dependencies = ["build_web"]
+
+[tasks.serve_dev]
+command = "miniserve"
+args = ["./static", "--index", "index.html"]
 dependencies = ["build_web_dev"]

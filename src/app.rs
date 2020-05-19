@@ -1,3 +1,4 @@
+use crate::fps;
 use crate::gameoflife;
 
 use yew::prelude::*;
@@ -13,7 +14,7 @@ pub enum Msg {
     Reset,
     Stop,
     ToggleCellule(usize),
-    Tick,
+    Tick(f64),
 }
 
 impl Component for App {
@@ -65,7 +66,12 @@ pub struct UniverseModel {
     active: bool,
     n_steps: usize,
     universe: gameoflife::Universe,
-    fps: Fps,
+    fps: fps::Fps,
+    fps_html: String,
+    canvas_node_ref: NodeRef,
+    canvas: Option<web_sys::HtmlCanvasElement>,
+    ctx: Option<web_sys::CanvasRenderingContext2d>,
+    render_handle: Option<Box<dyn yew::services::Task>>,
 }
 
 impl UniverseModel {
@@ -73,37 +79,23 @@ impl UniverseModel {
         for _ in 0..self.n_steps {
             self.universe.step();
         }
-        self.draw_game();
-        self.fps.render();
-        log!("Game Step!");
     }
 
-    fn draw_game(&self) {
-        let document = web_sys::window().unwrap().document().unwrap();
-        let canvas = document
-            .get_element_by_id("game-of-life-canvas")
-            .expect("there to be a canvas");
-        let canvas: web_sys::HtmlCanvasElement = canvas
-            .dyn_into::<web_sys::HtmlCanvasElement>()
-            .map_err(|_| ())
-            .unwrap();
+    fn draw_game(&mut self) {
+        let canvas = self.canvas.as_ref().expect("canvas not initialised!");
 
         let width = self.universe.width();
         let height = self.universe.height();
+
         canvas.set_height(((CELL_SIZE + 1) * height + 1) as u32);
         canvas.set_width(((CELL_SIZE + 1) * width + 1) as u32);
 
-        let context = canvas
-            .get_context("2d")
-            .unwrap()
-            .unwrap()
-            .dyn_into::<web_sys::CanvasRenderingContext2d>()
-            .unwrap();
+        let ctx = self.ctx.as_ref().expect("canvas context not initialise!");
 
-        log!("Draw!");
-
-        self.draw_grid(&context);
-        self.draw_cells(&context);
+        self.draw_grid(&ctx);
+        self.draw_cells(&ctx);
+        self.fps.render();
+        self.fps_html = self.fps.get_html();
     }
 
     fn draw_grid(&self, ctx: &web_sys::CanvasRenderingContext2d) {
@@ -183,6 +175,16 @@ impl UniverseModel {
 
         ctx.stroke();
     }
+
+    fn render_loop(&mut self) {
+        self.draw_game();
+
+        let render_frame = self.link.callback(Msg::Tick);
+        let handle = yew::services::RenderService::new().request_animation_frame(render_frame);
+
+        // A reference to the new handle must be retained for the next render to run.
+        self.render_handle = Some(Box::new(handle));
+    }
 }
 
 impl Component for UniverseModel {
@@ -190,13 +192,6 @@ impl Component for UniverseModel {
     type Properties = ();
 
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
-        let callback = link.callback(|_| {
-            log!("tick callback!");
-            Msg::Tick
-        });
-        let mut interval = yew::services::IntervalService::new();
-        let handle = interval.spawn(std::time::Duration::from_millis(200), callback);
-
         log!("universe created!");
 
         UniverseModel {
@@ -204,7 +199,12 @@ impl Component for UniverseModel {
             active: false,
             n_steps: 1,
             universe: gameoflife::Universe::new(128, 128),
-            fps: Fps::default(),
+            fps: fps::Fps::default(),
+            fps_html: String::default(),
+            canvas_node_ref: NodeRef::default(),
+            canvas: None,
+            ctx: None,
+            render_handle: None,
         }
     }
 
@@ -213,7 +213,6 @@ impl Component for UniverseModel {
             Msg::Random => {
                 self.universe.randomize();
                 log!("Random");
-                self.draw_game();
             }
             Msg::Start => {
                 if !self.active {
@@ -227,7 +226,6 @@ impl Component for UniverseModel {
             Msg::Reset => {
                 self.universe.reset();
                 log!("Reset");
-                self.draw_game();
             }
             Msg::Stop => {
                 self.active = false;
@@ -235,15 +233,12 @@ impl Component for UniverseModel {
             }
             Msg::ToggleCellule(idx) => {
                 self.universe.toggle_cell(idx);
-                self.draw_game();
             }
-            Msg::Tick => {
+            Msg::Tick(_) => {
                 if self.active {
                     self.step();
-                } else {
-                    self.draw_game();
                 }
-                log!("Tick");
+                self.render_loop();
             }
         }
         true
@@ -257,10 +252,11 @@ impl Component for UniverseModel {
     }
 
     fn view(&self) -> Html {
+        log!("game reflowed");
         html! {
             <section class="game-area">
-                <div>{ self.fps.view() }</div>
-                <canvas id="game-of-life-canvas"></canvas>
+                <div> <fps::FpsModel fps_html=self.fps_html.clone() /></div>
+                <canvas ref=self.canvas_node_ref.clone()></canvas>
                 <div class="game-buttons">
                     <button class="game-button" onclick=self.link.callback(|_| Msg::Random)>{ "Random" }</button>
                     <button class="game-button" onclick=self.link.callback(|_| Msg::Step)>{ "Step" }</button>
@@ -274,79 +270,19 @@ impl Component for UniverseModel {
 
     fn rendered(&mut self, first_render: bool) {
         if first_render {
-            self.draw_game();
-        }
-    }
-}
+            if let Some(canvas) = self.canvas_node_ref.cast::<web_sys::HtmlCanvasElement>() {
+                let context = canvas
+                    .get_context("2d")
+                    .unwrap()
+                    .unwrap()
+                    .dyn_into::<web_sys::CanvasRenderingContext2d>()
+                    .unwrap();
 
-pub struct Fps {
-    frames: Vec<f32>,
-    last_frame_time_stamp: f64,
-    fps: f32,
-    mean: f32,
-    min: f32,
-    max: f32,
-}
-
-impl Fps {
-    fn render(&mut self) {
-        let performance = web_sys::window().unwrap().performance().unwrap();
-        let now = performance.now();
-        let delta = now - self.last_frame_time_stamp;
-        self.last_frame_time_stamp = now;
-
-        let fps = 1f32 / delta as f32 * 1000f32;
-
-        self.frames.push(fps);
-        if self.frames.len() > 100 {
-            self.frames.remove(0);
-        }
-
-        let mut min = std::f32::MAX;
-        let mut max = std::f32::MIN;
-        let mut sum = 0f32;
-        for frame in &self.frames {
-            sum += frame;
-            min = min.min(*frame);
-            max = max.max(*frame);
-        }
-
-        self.fps = fps;
-        self.mean = sum / self.frames.len() as f32;
-        self.min = min;
-        self.max = max;
-    }
-
-    fn view(&self) -> Html {
-        html! {
-            <pre>
-            {
-                format!("Frames per Second:\n\
-                        latest = {fps}\n\
-                avg of last 100 = {mean}\n\
-                min of last 100 = {min}\n\
-                max of last 100 = {max}",
-                fps=self.fps.round(),
-                mean=self.mean.round(),
-                min=self.min.round(),
-                max=self.max.round()
-                )
+                self.canvas = Some(canvas);
+                self.ctx = Some(context);
             }
-            </pre>
-        }
-    }
-}
 
-impl Default for Fps {
-    fn default() -> Fps {
-        let performance = web_sys::window().unwrap().performance().unwrap();
-        Fps {
-            frames: vec![],
-            last_frame_time_stamp: performance.now(),
-            fps: 0f32,
-            mean: 0f32,
-            min: 0f32,
-            max: 0f32,
+            self.render_loop();
         }
     }
 }
