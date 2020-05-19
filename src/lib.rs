@@ -4,6 +4,9 @@ mod utils;
 mod app;
 
 use wasm_bindgen::prelude::*;
+
+
+#[allow(unused_imports)]
 use yew::prelude::*;
 
 #[wasm_bindgen]
