@@ -8,7 +8,7 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 extern crate wasm_gameoflife;
-use wasm_gameoflife::gameoflife::Universe;
+use wasm_gameoflife::universe::Universe;
 
 #[cfg(test)]
 pub fn input_spaceship() -> Universe {

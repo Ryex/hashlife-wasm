@@ -24,6 +24,9 @@ build:
     expire_in: 2 days
     paths:
       - static/
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'master'      # Execute jobs when a new commit is pushed to master branch
+  
 
 # Use cargo to test the project
 test:cargo:
