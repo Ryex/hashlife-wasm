@@ -13,8 +13,8 @@ before_script:
 # Use cargo to test the project
 test:cargo:
   script:
-    - rustc --version && cargo --version  && wasm-pack --version # Print version info for debugging
-    - wasm-pack test --firefox --headless
+    - rustc --version && cargo --version  && ./.cargo/bin/wasm-pack --version # Print version info for debugging
+    - ./.cargo/bin/wasm-pack test --firefox --headless
   cache:
     paths:
       - .cargo
