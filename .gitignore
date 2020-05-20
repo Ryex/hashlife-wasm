@@ -9,3 +9,4 @@ wasm-pack.log
 /static
 !/static/*.css
 !/static/*.html
+.cargo-ok
