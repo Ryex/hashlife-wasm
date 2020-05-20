@@ -11,15 +11,13 @@ variables:
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
   APT_CACHE_DIR: .apt-cache
 
-before_script:
-  - cargo install wasm-pack
-
 build:
   stage: build
   cache:
     paths:
       - .cargo
   script:
+    - cargo install wasm-pack
     - rustc --version && cargo --version  && ./.cargo/bin/wasm-pack --version # Print version info for debugging
     - ./.cargo/bin/wasm-pack build --target web --out-name wasm --out-dir ./static
   artifacts:
@@ -39,8 +37,12 @@ test:cargo:
     - apt-get -qq -o dir::cache::archives="$APT_CACHE_DIR" install -y
       xvfb firefox-esr
     - firefox --version
+    - cargo install wasm-pack
     - rustc --version && cargo --version  && ./.cargo/bin/wasm-pack --version # Print version info for debugging
     - xvfb-run ./.cargo/bin/wasm-pack test --firefox --headless
+  rules:
+    - if: $CI_MERGE_REQUEST_ID               # Execute jobs in merge request context
+    - if: $CI_COMMIT_BRANCH == 'master'      # Execute jobs when a new commit is pushed to master branch
   
 
 pages:
@@ -53,5 +55,7 @@ pages:
   artifacts:
     paths:
       - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'master'      # Execute jobs when a new commit is pushed to master branch
 
   
