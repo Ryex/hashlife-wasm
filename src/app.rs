@@ -4,8 +4,7 @@ use yew::prelude::*;
 
 pub struct App {}
 
-pub enum Msg {
-}
+pub enum Msg {}
 
 impl Component for App {
     type Message = Msg;
@@ -38,12 +37,10 @@ impl Component for App {
                 <UniverseModel />
                 <footer class="app-footer">
                     <strong class="footer-text">
-                      { "Game of Life - in rust - in honer of Conway" }
+                      { "Game of Life - In rust - In honor of " } <a href="https://www.conwaylife.com/wiki/John_Conway" >{" John Conway " }</a>
                     </strong>
                 </footer>
             </div>
         }
     }
 }
-
- 

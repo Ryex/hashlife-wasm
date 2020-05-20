@@ -6,12 +6,49 @@ use yew::prelude::*;
 
 use wasm_bindgen::JsCast;
 
+pub struct KeysPressed {
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    meta: bool,
+}
+
+impl std::fmt::Display for KeysPressed {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "[ctrl: {}, shift: {} alt: {}, meta: {}]",
+            self.ctrl, self.shift, self.alt, self.meta
+        )
+    }
+}
+
+impl KeysPressed {
+    pub fn only_ctrl(&self) -> bool {
+        self.ctrl && !self.shift && !self.alt && !self.meta
+    }
+    pub fn only_shift(&self) -> bool {
+        !self.ctrl && self.shift && !self.alt && !self.meta
+    }
+    #[allow(dead_code)]
+    pub fn only_alt(&self) -> bool {
+        !self.ctrl && !self.shift && self.alt && !self.meta
+    }
+    #[allow(dead_code)]
+    pub fn only_ctrl_shift(&self) -> bool {
+        self.ctrl && self.shift && !self.alt && !self.meta
+    }
+    #[allow(dead_code)]
+    pub fn only_ctrl_alt(&self) -> bool {
+        self.ctrl && !self.shift && self.alt && !self.meta
+    }
+}
 
 pub enum Msg {
     Random,
     Step,
     Reset,
-    ToggleCellule(i32, i32),
+    Click(i32, i32, KeysPressed),
     Tick(f64),
     TickToggle,
     StepsPerTick(usize),
@@ -147,7 +184,7 @@ impl UniverseModel {
         self.render_handle = Some(Box::new(handle));
     }
 
-    fn get_idx_from_canvas_cords(&self, x: i32, y: i32) -> usize {
+    fn get_row_col_client_cords(&self, x: i32, y: i32) -> (usize, usize) {
         let canvas = self.canvas.as_ref().expect("canvas not initialised!");
         let bounding_rect = canvas.get_bounding_client_rect();
 
@@ -163,9 +200,19 @@ impl UniverseModel {
             .floor()
             .min((self.universe.width() - 1) as f64);
 
-        self.universe.get_index(row as usize, col as usize)
+        (row as usize, col as usize)
     }
 
+    fn process_context_click(&mut self, x: i32, y: i32, keys: KeysPressed) {
+        let (row, col) = self.get_row_col_client_cords(x, y);
+        if keys.only_ctrl() {
+            self.universe.set_flyer(row, col);
+        } else if keys.only_shift() {
+            self.universe.set_pulsar(row, col);
+        } else {
+            self.universe.toggle_cell(self.universe.get_index(row, col));
+        }
+    }
 }
 
 impl Component for UniverseModel {
@@ -194,14 +241,16 @@ impl Component for UniverseModel {
             Msg::Random => {
                 self.universe.randomize();
                 log!("Random");
+                false
             }
-
             Msg::Step => {
                 self.step();
+                false
             }
             Msg::Reset => {
                 self.universe.reset();
                 log!("Reset");
+                false
             }
             Msg::TickToggle => {
                 if !self.active {
@@ -211,23 +260,25 @@ impl Component for UniverseModel {
                     self.active = false;
                     log!("Stop");
                 }
+                true
             }
-            Msg::ToggleCellule(x, y) => {
-                let idx = self.get_idx_from_canvas_cords(x, y);
-                self.universe.toggle_cell(idx);
+            Msg::Click(x, y, keys) => {
+                self.process_context_click(x, y, keys);
+                false
             }
             Msg::Tick(_) => {
                 if self.active {
                     self.step();
                 }
                 self.render_loop();
+                true
             }
             Msg::StepsPerTick(n) => {
                 self.n_steps = n;
                 log!("Steps per tick is now: {}", n);
+                true
             }
         }
-        true
     }
 
     fn change(&mut self, _props: Self::Properties) -> ShouldRender {
@@ -244,8 +295,14 @@ impl Component for UniverseModel {
                 <div> <fps::FpsModel fps_html=self.fps_html.clone() /></div>
                 <canvas ref=self.canvas_node_ref.clone()
                     onclick=self.link.callback(|e: web_sys::MouseEvent|{
-                        log!("{}:{}", e.client_x(), e.client_y());
-                        Msg::ToggleCellule(e.client_x(), e.client_y())
+                        let keys = KeysPressed {
+                            ctrl: e.ctrl_key(),
+                            shift: e.shift_key(),
+                            alt: e.alt_key(),
+                            meta: e.meta_key()
+                        };
+                        log!("{}:{} -> {}", e.client_x(), e.client_y(), keys);
+                        Msg::Click(e.client_x(), e.client_y(), keys)
                     })></canvas>
                 <div class="game-buttons">
                     <button class="game-button" onclick=self.link.callback(|_| Msg::TickToggle)> {if self.active {"⏸"} else {"▶"}}</button>

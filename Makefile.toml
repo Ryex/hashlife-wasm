@@ -22,13 +22,11 @@ args = ["test", "--firefox", "--headless"]
 
 [tasks.build_web]
 dependencies = [
-    "format",
     "wasm_build"
 ]
 
 [tasks.build_web_dev]
 dependencies = [
-    "format",
     "wasm_build_dev"
 ]
 

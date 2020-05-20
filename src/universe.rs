@@ -35,24 +35,6 @@ impl Universe {
         row * self.width + column
     }
 
-    // slow version
-    // fn live_neighbor_count(&self, row: usize, column: usize) -> usize {
-    //     let mut count = 0;
-    //     for delta_row in [self.height - 1, 0, 1].iter().cloned() {
-    //         for delta_col in [self.width - 1, 0, 1].iter().cloned() {
-    //             if delta_row == 0 && delta_col == 0 {
-    //                 continue;
-    //             }
-
-    //             let neighbor_row = (row + delta_row) % self.height;
-    //             let neighbor_col = (column + delta_col) % self.width;
-    //             let idx = self.get_index(neighbor_row, neighbor_col);
-    //             count += self.cells[idx] as usize;
-    //         }
-    //     }
-    //     count
-    // }
-
     // fast version
     fn live_neighbor_count(&self, row: usize, column: usize) -> usize {
         let mut count = 0;
@@ -111,14 +93,13 @@ impl Universe {
         cells
     }
 
-    #[allow(dead_code)]
     pub fn get_cells(&self) -> &FixedBitSet {
         &self.cells
     }
 
     /// Set cells to be alive in a universe by passing the row and column
     /// of each cell as an array.
-    #[allow(dead_code)]
+
     pub fn set_cells(&mut self, cells: &[(usize, usize)]) {
         for (row, col) in cells.iter().cloned() {
             let idx = self.get_index(row, col);
@@ -160,17 +141,14 @@ impl Universe {
         self.cells = next;
     }
 
-    #[allow(dead_code)]
     pub fn width(&self) -> usize {
         self.width
     }
 
-    #[allow(dead_code)]
     pub fn height(&self) -> usize {
         self.height
     }
 
-    #[allow(dead_code)]
     pub fn cells(&self) -> *const u32 {
         self.cells.as_slice().as_ptr()
     }
@@ -184,7 +162,6 @@ impl Universe {
         }
     }
 
-    #[allow(dead_code)]
     pub fn clear(&mut self) {
         let size = (self.width * self.height) as usize;
 
@@ -201,7 +178,7 @@ impl Universe {
     /// Set the width of the universe.
     ///
     /// Resets all cells to the dead state.
-    #[allow(dead_code)]
+
     pub fn set_width(&mut self, width: usize) {
         self.width = width;
         self.reset();
@@ -210,7 +187,7 @@ impl Universe {
     /// Set the height of the universe.
     ///
     /// Resets all cells to the dead state.
-    #[allow(dead_code)]
+
     pub fn set_height(&mut self, height: usize) {
         self.height = height;
         self.reset();
@@ -228,5 +205,39 @@ impl Universe {
             val,
             !val
         );
+    }
+
+    #[rustfmt::skip]
+    pub fn set_flyer(&mut self, row: usize, col: usize) {
+  
+        let cells = [
+            (row-1, col-1),
+                            (row, col), (row, col+1),
+            (row+1, col-1), (row+1, col)
+        ];
+        self.set_cells(&cells);
+    }
+
+    #[rustfmt::skip]
+    pub fn set_pulsar(&mut self, r: usize, c: usize) {
+
+        let cells = [
+                    (r-4, c-6), (r-3, c-6), (r-2, c-6),                 (r+2, c-6), (r+3, c-6), (r+4, c-6),
+            
+            (r-6, c-4),                          (r-1, c-4),    (r+1, c-4),                             (r+6, c-4),
+            (r-6, c-3),                          (r-1, c-3),    (r+1, c-3),                             (r+6, c-3),
+            (r-6, c-2),                          (r-1, c-2),    (r+1, c-2),                             (r+6, c-2),
+                    
+                    (r-4, c-1), (r-3, c-1), (r-2, c-1),                 (r+2, c-1), (r+3, c-1), (r+4, c-1),
+
+                    (r-4, c+1), (r-3, c+1), (r-2, c+1),                 (r+2, c+1), (r+3, c+1), (r+4, c+1),
+            
+            (r-6, c+2),                          (r-1, c+2),    (r+1, c+2),                             (r+6, c+2),
+            (r-6, c+3),                          (r-1, c+3),    (r+1, c+3),                             (r+6, c+3),
+            (r-6, c+4),                          (r-1, c+4),    (r+1, c+4),                             (r+6, c+4),
+
+                    (r-4, c+6), (r-3, c+6), (r-2, c+6),                 (r+2, c+6), (r+3, c+6), (r+4, c+6),
+        ];
+        self.set_cells(&cells);
     }
 }
