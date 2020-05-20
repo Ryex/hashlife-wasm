@@ -26,7 +26,7 @@ build:
       - .apt-cache
   script:
     - rustc --version && cargo --version  && ./.cargo/bin/wasm-pack --version # Print version info for debugging
-    - ./.cargo/bin/wasm-pack --target web --out-name wasm --out-dir ./static
+    - ./.cargo/bin/wasm-pac build --target web --out-name wasm --out-dir ./static
   artifacts:
     expire_in: 2 days
     paths:
