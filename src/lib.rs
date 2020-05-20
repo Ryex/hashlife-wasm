@@ -5,7 +5,8 @@ mod utils;
 
 mod app;
 mod fps;
-pub mod gameoflife;
+mod game;
+pub mod universe;
 
 use wasm_bindgen::prelude::*;
 
