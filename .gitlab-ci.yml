@@ -12,10 +12,6 @@ variables:
   APT_CACHE_DIR: .apt-cache
 
 before_script:
-  - mkdir -pv $APT_CACHE_DIR && apt-get -qq update
-  - apt-get -qq -o dir::cache::archives="$APT_CACHE_DIR" install -y
-    xvfb firefox-esr
-  - firefox --version
   - cargo install wasm-pack
 
 build:
@@ -23,10 +19,9 @@ build:
   cache:
     paths:
       - .cargo
-      - .apt-cache
   script:
     - rustc --version && cargo --version  && ./.cargo/bin/wasm-pack --version # Print version info for debugging
-    - ./.cargo/bin/wasm-pac build --target web --out-name wasm --out-dir ./static
+    - ./.cargo/bin/wasm-pack build --target web --out-name wasm --out-dir ./static
   artifacts:
     expire_in: 2 days
     paths:
@@ -40,6 +35,10 @@ test:cargo:
       - .cargo
       - .apt-cache
   script:
+    - mkdir -pv $APT_CACHE_DIR && apt-get -qq update
+    - apt-get -qq -o dir::cache::archives="$APT_CACHE_DIR" install -y
+      xvfb firefox-esr
+    - firefox --version
     - rustc --version && cargo --version  && ./.cargo/bin/wasm-pack --version # Print version info for debugging
     - xvfb-run ./.cargo/bin/wasm-pack test --firefox --headless
   
