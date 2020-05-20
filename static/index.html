@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Rust • Game of Life</title>
+        <link rel="stylesheet" href="styles.css">
+        <script type="module">
+            import init from "./wasm.js";
+            console.log("head module ran!");
+            init().then( (wasm) =>  {
+                console.log("init finished??!?", wasm);
+                var result = wasm.run_app();
+                console.log("app ran?", result);
+            })
+        </script>
+    </head>
+    <body></body>
+</html>
