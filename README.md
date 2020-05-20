@@ -9,7 +9,7 @@
 
 ## About
 
-A game of life implimentation in honer of John Conway who dies April 11 2020 of the Covid19 pandemic.
+A game of life implimentation in honer of John Conway who died April 11 2020 of the Covid19 pandemic.
 
 ## 🔋 Batteries Included
 
