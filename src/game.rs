@@ -308,10 +308,10 @@ impl Component for UniverseModel {
                     <button class="game-button" onclick=self.link.callback(|_| Msg::TickToggle)> {if self.active {"⏸"} else {"▶"}}</button>
                     <button class="game-button" onclick=self.link.callback(|_| Msg::Random)>{ "Randomize" }</button>
                     <button class="game-button" onclick=self.link.callback(|_| Msg::Step)>{ "Step" }</button>
-                    <button class="game-button" onclick=self.link.callback(|_| Msg::Reset)>{ "Reset" }</button>
+                    <button class="game-button" onclick=self.link.callback(|_| Msg::Reset)>{ "Clear" }</button>
                     <div>
                         <label> { format!("Ticks per Frame: {}", n_steps) } </label>
-                        <input type="range" id="ticks-per-frame" min="1" max="10" value="1" onchange=self.link.callback(move |value| {
+                        <input type="range" id="ticks-per-frame" min="1" max="20" value="1" onchange=self.link.callback(move |value| {
                                 let mut n = n_steps;
                                 if let yew::events::ChangeData::Value(str_n) = value {
                                     let result = str_n.parse::<usize>();

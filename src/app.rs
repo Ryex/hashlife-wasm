@@ -32,12 +32,13 @@ impl Component for App {
                 <section class="game-container">
                     <header class="app-header">
                         <h1 class="app-title">{ "Game of Life" }</h1>
+                        <pre>{"Click: toggle cell; CTRL+Click: place Glider; SHIFT+Click: place Pulser"}</pre>
                     </header>
                 </section>
                 <UniverseModel />
                 <footer class="app-footer">
                     <strong class="footer-text">
-                      { "Game of Life - In rust - In honor of " } <a href="https://www.conwaylife.com/wiki/John_Conway" >{" John Conway " }</a>
+                        <p>{ "Game of Life - In rust - In honor of " } <a href="https://www.conwaylife.com/wiki/John_Conway" >{" John Conway " }</a></p>
                     </strong>
                 </footer>
             </div>
