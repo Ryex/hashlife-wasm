@@ -11,7 +11,7 @@ pub enum Msg {
     Random,
     Step,
     Reset,
-    ToggleCellule(usize),
+    ToggleCellule(i32, i32),
     Tick(f64),
     TickToggle,
     StepsPerTick(usize),
@@ -185,6 +185,26 @@ impl UniverseModel {
         // A reference to the new handle must be retained for the next render to run.
         self.render_handle = Some(Box::new(handle));
     }
+
+    fn get_idx_from_canvas_cords(&self, x: i32, y: i32) -> usize {
+        let canvas = self.canvas.as_ref().expect("canvas not initialised!");
+        let bounding_rect = canvas.get_bounding_client_rect();
+
+        let scale_x = canvas.width() as f64 / bounding_rect.width();
+        let scale_y = canvas.height() as f64 / bounding_rect.height();
+
+        let canvas_left = (x as f64 - bounding_rect.left()) * scale_x;
+        let canvas_top = (y as f64 - bounding_rect.top()) * scale_y;
+        let row = (canvas_top / (CELL_SIZE + 1) as f64)
+            .floor()
+            .min((self.universe.height() - 1) as f64);
+        let col = (canvas_left / (CELL_SIZE + 1) as f64)
+            .floor()
+            .min((self.universe.width() - 1) as f64);
+
+        self.universe.get_index(row as usize, col as usize)
+    }
+
 }
 
 impl Component for UniverseModel {
@@ -231,7 +251,8 @@ impl Component for UniverseModel {
                     log!("Stop");
                 }
             }
-            Msg::ToggleCellule(idx) => {
+            Msg::ToggleCellule(x, y) => {
+                let idx = self.get_idx_from_canvas_cords(x, y);
                 self.universe.toggle_cell(idx);
             }
             Msg::Tick(_) => {
@@ -260,7 +281,11 @@ impl Component for UniverseModel {
         html! {
             <section class="game-area">
                 <div> <fps::FpsModel fps_html=self.fps_html.clone() /></div>
-                <canvas ref=self.canvas_node_ref.clone()></canvas>
+                <canvas ref=self.canvas_node_ref.clone()
+                    onclick=self.link.callback(|e: web_sys::MouseEvent|{
+                        log!("{}:{}", e.client_x(), e.client_y());
+                        Msg::ToggleCellule(e.client_x(), e.client_y())
+                    })></canvas>
                 <div class="game-buttons">
                     <button class="game-button" onclick=self.link.callback(|_| Msg::TickToggle)> {if self.active {"⏸"} else {"▶"}}</button>
                     <button class="game-button" onclick=self.link.callback(|_| Msg::Random)>{ "Randomize" }</button>
