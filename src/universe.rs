@@ -13,10 +13,10 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[derive(Debug, Clone, Eq)]
 struct QTreeNode {
-    nw: Option<BoxedNode>,
-    ne: Option<BoxedNode>,
-    sw: Option<BoxedNode>,
-    se: Option<BoxedNode>,
+    pub nw: Option<BoxedNode>,
+    pub ne: Option<BoxedNode>,
+    pub sw: Option<BoxedNode>,
+    pub se: Option<BoxedNode>,
     level: u32,
     population: u32,
     alive: bool,
@@ -171,7 +171,14 @@ impl QTreeNode {
         }
      }
 
-
+    ///
+    ///   Given an integer with a bitmask indicating which bits are
+    ///    set in the neighborhood, calculate whether this cell is
+    ///   alive or dead in the next generation.  The bottom three
+    ///   bits are the south neighbors; bits 4..6 are the current
+    ///   row with bit 5 being the cell itself, and bits 8..10
+    ///   are the north neighbors.
+    ///
      pub fn one_generation(&self, bitmask: i32) -> BoxedNode {
         if bitmask == 0 {
             return QTreeNode::new(false, self.map.clone());
@@ -190,14 +197,11 @@ impl QTreeNode {
         }
      }
 
-    //  TreeNode slowSimulation() {
-    //     int allbits = 0 ;
-    //     for (int y=-2; y<2; y++)
-    //        for (int x=-2; x<2; x++)
-    //           allbits = (allbits << 1) + getBit(x, y) ;
-    //     return create(oneGen(allbits>>5), oneGen(allbits>>4),
-    //                   oneGen(allbits>>1), oneGen(allbits)) ;
-    //  }
+    
+    ///
+    ///   At level 2, we can use slow simulation to compute the next
+    ///   generation.  We use bitmask tricks.
+    ///
     pub fn slow_simulaiton(&self) -> BoxedNode {
         let mut all_bits = 0;
         for y in -2..2 {
@@ -215,7 +219,112 @@ impl QTreeNode {
 
     }
 
+    /// 
+    ///  Return a new node one level down containing only the
+    ///  center elements.
+    ///
+    pub fn centered_subnode(&self) -> BoxedNode {
+        QTreeNode::new_with_children(
+            self.nw.clone().unwrap().se.clone().unwrap(), 
+            self.ne.clone().unwrap().sw.clone().unwrap(), 
+            self.sw.clone().unwrap().ne.clone().unwrap(), 
+            self.se.clone().unwrap().nw.clone().unwrap(),
+            self.map.clone())
+    }
 
+    ///
+    ///   Return a new node one level down from two given nodes
+    ///  that contains the east centered two sub sub nodes from
+    ///  the west node and the west centered two sub sub nodes
+    ///  from the east node.
+    ///
+    pub fn centered_horizontal(w: BoxedNode, e: BoxedNode, map: Box<NodeMap>) -> BoxedNode {
+        QTreeNode::new_with_children(
+            w.ne.clone().unwrap().se.clone().unwrap(), 
+            e.nw.clone().unwrap().sw.clone().unwrap(),  
+            w.se.clone().unwrap().ne.clone().unwrap(),  
+            e.sw.clone().unwrap().nw.clone().unwrap(),
+            map)
+    }
+
+    /// 
+    ///   Similar, but this does it north/south instead of east/west.
+    ///
+    pub fn centered_vertical(n: BoxedNode, s: BoxedNode, map: Box<NodeMap>) -> BoxedNode {
+        QTreeNode::new_with_children(
+            n.sw.clone().unwrap().se.clone().unwrap(), 
+            n.se.clone().unwrap().sw.clone().unwrap(),  
+            s.nw.clone().unwrap().ne.clone().unwrap(),  
+            s.ne.clone().unwrap().nw.clone().unwrap(),
+            map)
+    }
+
+    /// 
+    ///   Return a new node two levels down containing only the
+    ///  centered elements.
+    ///
+   
+    pub fn centered_sub_subnode(&self) -> BoxedNode {
+        QTreeNode::new_with_children(
+            self.nw.clone().unwrap().se.clone().unwrap().se.clone().unwrap(),  
+            self.ne.clone().unwrap().sw.clone().unwrap().sw.clone().unwrap(),  
+            self.sw.clone().unwrap().ne.clone().unwrap().ne.clone().unwrap(),  
+            self.se.clone().unwrap().nw.clone().unwrap().nw.clone().unwrap(),
+            self.map.clone())
+    }
+
+    ///
+    /// The recursive call that computes the next generation.  It works
+    /// by constructing nine subnodes that are each a quarter the size
+    /// of the current node in each dimension, and combining these in
+    /// groups of four, building subnodes from these, and then
+    /// recursively invoking the nextGeneration function and combining
+    /// those final results into a single return value that is one
+    /// half the size of the current node and advanced one generation in
+    /// time.
+    ///
+    pub fn next_generation(&mut self) -> BoxedNode {
+        if let Some(result) = self.result.clone() {
+            return result;
+        }
+        if self.population == 0 {
+            return self.nw.clone().unwrap();
+        }
+        if self.level == 2 {
+            return self.slow_simulaiton();
+        }
+        let nw = self.nw.clone().unwrap();
+        let ne = self.ne.clone().unwrap();
+        let sw = self.sw.clone().unwrap();
+        let se = self.se.clone().unwrap();
+        let n00 = nw.centered_subnode();
+        let n01 = QTreeNode::centered_horizontal(nw.clone(), ne.clone(), self.map.clone());
+        let n02 = ne.centered_subnode();
+        let n10 = QTreeNode::centered_vertical(nw, sw.clone(), self.map.clone());
+        let n11 = self.centered_sub_subnode();
+        let n12 = QTreeNode::centered_vertical(ne, se.clone(), self.map.clone());
+        let n20 = sw.centered_subnode();
+        let n21 = QTreeNode::centered_horizontal(sw, se.clone(), self.map.clone());
+        let n22 = se.centered_subnode();
+
+        let result = QTreeNode::new_with_children(
+            QTreeNode::new_with_children(
+                n00, n01.clone(), n10.clone(), n11.clone(),
+                self.map.clone()), 
+            QTreeNode::new_with_children(
+                n01, n02, n11.clone(), n12.clone(),
+                self.map.clone()),  
+            QTreeNode::new_with_children(
+                n10, n11.clone(), n20, n21.clone(),
+                self.map.clone()),  
+            QTreeNode::new_with_children(
+                n11, n12, n21, n22,
+                self.map.clone()),
+            self.map.clone()
+        );
+        self.result = Some(result.clone());
+        result
+    }
 
 }
 
