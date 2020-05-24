@@ -1,3 +1,6 @@
+use std::hash::{Hash, Hasher};
+use std::collections::HashMap;
+
 use fixedbitset::FixedBitSet;
 
 extern crate web_sys;
@@ -7,6 +10,107 @@ extern crate web_sys;
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+#[derive(Debug, Clone, Eq)]
+struct QTreeNode {
+    nw: Option<BoxedNode>,
+    ne: Option<BoxedNode>,
+    sw: Option<BoxedNode>,
+    se: Option<BoxedNode>,
+    level: u32,
+    population: u32,
+    alive: bool,
+    result: Option<BoxedNode>,
+    map: Box<NodeMap>
+}
+
+type BoxedNode = Box<QTreeNode>;
+type NodeMap = HashMap<QTreeNode, QTreeNode>;
+
+impl Hash for QTreeNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        if self.level == 0 {
+            self.population.hash(state);
+        } else {
+            self.nw.hash(state);
+            self.ne.hash(state);
+            self.sw.hash(state);
+            self.se.hash(state);
+        }
+        
+    }
+}
+
+impl PartialEq for QTreeNode {
+    fn eq(&self, other: &Self) -> bool {
+        if self.level == 0 {
+            if other.population == 0 {
+                self.population == other.population
+            } else {
+                false
+            }
+        } else if other.level == 0 {
+                false
+        } else {
+            self.nw == other.nw &&
+            self.ne == other.ne &&
+            self.se == other.se &&
+            self.sw == other.sw
+        }
+    }
+}
+
+impl QTreeNode {
+
+    fn new(alive: bool, map: Box<NodeMap>) -> Self {
+        QTreeNode {
+            nw: None,
+            ne: None,
+            sw: None,
+            se: None,
+            level: 0,
+            alive,
+            population: if alive { 1 } else { 0 },
+            result: None,
+            map,
+        }.intern()
+    }
+
+    fn new_with_children(nw: BoxedNode, ne: BoxedNode, sw: BoxedNode, se: BoxedNode,  map: Box<NodeMap>) -> Self {
+        let population = nw.population + ne.population +
+                         sw.population + se.population;
+        QTreeNode {
+            nw: Some(nw.clone()),
+            ne: Some(ne.clone()),
+            sw: Some(sw.clone()),
+            se: Some(se.clone()),
+            level: nw.level + 1,
+            alive: population > 0,
+            population,
+            result: None,
+            map
+        }.intern()
+    }
+
+    fn intern(&mut self) -> Self {
+        if let Some(cannon) = self.map.get(self) {
+            return cannon.clone();
+        }
+        self.map.insert(self.clone(), self.clone());
+        self.clone()
+    }
+
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct QTreeUniverse {
+    root: QTreeNode,
+    hashMap: NodeMap,
+    generationCount: u64,
+    width: u32,
+    height: u32,
+    population: u32
+}
 
 pub struct Universe {
     width: usize,
