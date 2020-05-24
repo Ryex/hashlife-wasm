@@ -111,9 +111,9 @@ impl QTreeNode {
         boxed
     }
 
-    pub fn get_bit(&self, x: i32, y: i32) -> u32 {
+    pub fn get_bit(&self, x: i32, y: i32) -> i32 {
         if self.level == 0 {
-            return self.alive as u32;
+            return self.alive as i32;
         }
         let offset = 1 << (self.level - 2) ;
         if x < 0 {
@@ -170,6 +170,52 @@ impl QTreeNode {
                 self.map.clone())
         }
      }
+
+
+     pub fn one_generation(&self, bitmask: i32) -> BoxedNode {
+        if bitmask == 0 {
+            return QTreeNode::new(false, self.map.clone());
+        }
+        let s = (bitmask >> 5) & 1;
+        let mut b = bitmask & 0x757 ; // mask out bits we don't care about
+        let mut neighbor_count = 0 ;
+        while b != 0 {
+            neighbor_count += 1;
+            b &= b - 1 ; // clear least significant bit
+        }
+        if neighbor_count == 3 || (neighbor_count == 2 && s != 0) {
+            QTreeNode::new(true, self.map.clone())
+        } else {
+            QTreeNode::new(false, self.map.clone())
+        }
+     }
+
+    //  TreeNode slowSimulation() {
+    //     int allbits = 0 ;
+    //     for (int y=-2; y<2; y++)
+    //        for (int x=-2; x<2; x++)
+    //           allbits = (allbits << 1) + getBit(x, y) ;
+    //     return create(oneGen(allbits>>5), oneGen(allbits>>4),
+    //                   oneGen(allbits>>1), oneGen(allbits)) ;
+    //  }
+    pub fn slow_simulaiton(&self) -> BoxedNode {
+        let mut all_bits = 0;
+        for y in -2..2 {
+            for x in -2..2 {
+                all_bits = (all_bits << 1) + self.get_bit(x, y) ;
+            }
+        }
+
+        QTreeNode::new_with_children(
+            self.one_generation(all_bits >> 5), 
+            self.one_generation(all_bits >> 4), 
+            self.one_generation(all_bits >> 1), 
+            self.one_generation(all_bits),
+            self.map.clone())
+
+    }
+
+
 
 }
 
