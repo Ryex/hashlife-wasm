@@ -25,7 +25,7 @@ struct QTreeNode {
 }
 
 type BoxedNode = Box<QTreeNode>;
-type NodeMap = HashMap<QTreeNode, QTreeNode>;
+type NodeMap = HashMap<QTreeNode, Box<QTreeNode>>;
 
 impl Hash for QTreeNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -62,7 +62,7 @@ impl PartialEq for QTreeNode {
 
 impl QTreeNode {
 
-    fn new(alive: bool, map: Box<NodeMap>) -> Self {
+    pub fn new(alive: bool, map: Box<NodeMap>) -> BoxedNode {
         QTreeNode {
             nw: None,
             ne: None,
@@ -76,15 +76,16 @@ impl QTreeNode {
         }.intern()
     }
 
-    fn new_with_children(nw: BoxedNode, ne: BoxedNode, sw: BoxedNode, se: BoxedNode,  map: Box<NodeMap>) -> Self {
+    pub fn new_with_children(nw: BoxedNode, ne: BoxedNode, sw: BoxedNode, se: BoxedNode,  map: Box<NodeMap>) -> BoxedNode {
         let population = nw.population + ne.population +
                          sw.population + se.population;
+        let level = nw.level + 1;
         QTreeNode {
-            nw: Some(nw.clone()),
-            ne: Some(ne.clone()),
-            sw: Some(sw.clone()),
-            se: Some(se.clone()),
-            level: nw.level + 1,
+            nw: Some(nw),
+            ne: Some(ne),
+            sw: Some(sw),
+            se: Some(se),
+            level,
             alive: population > 0,
             population,
             result: None,
@@ -92,21 +93,100 @@ impl QTreeNode {
         }.intern()
     }
 
-    fn intern(&mut self) -> Self {
+    pub fn new_empty_tree (level: u32, map: Box<NodeMap>) -> BoxedNode {
+        if level == 0 {
+            return QTreeNode::new(false, map);
+        }
+
+        let n = QTreeNode::new_empty_tree(level - 1, map.clone());
+        QTreeNode::new_with_children(n.clone(), n.clone(), n.clone(), n, map)
+    }
+
+    fn intern(&mut self) -> BoxedNode {
         if let Some(cannon) = self.map.get(self) {
             return cannon.clone();
         }
-        self.map.insert(self.clone(), self.clone());
-        self.clone()
+        let boxed = Box::new(self.clone());
+        self.map.insert(self.clone(), boxed.clone());
+        boxed
     }
 
+    pub fn get_bit(&self, x: i32, y: i32) -> u32 {
+        if self.level == 0 {
+            return self.alive as u32;
+        }
+        let offset = 1 << (self.level - 2) ;
+        if x < 0 {
+            if y < 0 {
+                self.nw.clone().unwrap().get_bit(x+offset, y+offset)
+            } else {
+                self.sw.clone().unwrap().get_bit(x+offset, y-offset)
+            }
+        } else if y < 0 {
+            self.ne.clone().unwrap().get_bit(x-offset, y+offset)
+        } else {
+            self.se.clone().unwrap().get_bit(x-offset, y-offset)
+        }
+
+    }
+
+    pub fn set_bit(&self, x: i32, y: i32) -> BoxedNode {
+        if self.level == 0 {
+            return QTreeNode::new(true, self.map.clone());
+        }
+
+        // distance from center of this node to center of subnode is
+        // one fourth the size of this node.
+        let offset = 1 << (self.level - 2) ;
+        if x < 0 {
+            if y < 0 {
+               QTreeNode::new_with_children(
+                    self.nw.clone().unwrap().set_bit(x + offset, y + offset), 
+                    self.ne.clone().unwrap(), 
+                    self.sw.clone().unwrap(), 
+                    self.se.clone().unwrap(),
+                    self.map.clone())
+            } else {
+                QTreeNode::new_with_children(
+                    self.nw.clone().unwrap(), 
+                    self.ne.clone().unwrap(), 
+                    self.sw.clone().unwrap().set_bit(x + offset, y - offset), 
+                    self.se.clone().unwrap(),
+                    self.map.clone())
+            }
+        } else if y < 0 {
+            QTreeNode::new_with_children(
+                self.nw.clone().unwrap(), 
+                self.ne.clone().unwrap().set_bit(x - offset, y + offset), 
+                self.sw.clone().unwrap(), 
+                self.se.clone().unwrap(),
+                self.map.clone())
+        } else {
+            QTreeNode::new_with_children(
+                self.nw.clone().unwrap(), 
+                self.ne.clone().unwrap(), 
+                self.sw.clone().unwrap(), 
+                self.se.clone().unwrap().set_bit(x - offset, y - offset),
+                self.map.clone())
+        }
+     }
+
+}
+
+
+impl Default for QTreeNode {
+    
+    fn default() -> Self {
+        let map = Box::new(NodeMap::new());
+        QTreeNode::new_empty_tree(3, map).as_ref().clone()
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct QTreeUniverse {
     root: QTreeNode,
-    hashMap: NodeMap,
-    generationCount: u64,
+    map: NodeMap,
+    generation_count: u64,
     width: u32,
     height: u32,
     population: u32
