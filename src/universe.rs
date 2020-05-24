@@ -262,8 +262,9 @@ impl Universe {
         let size = (self.width * self.height) as usize;
 
         for i in 0..size {
-            self.cells.set(i, js_sys::Math::random() < 0.5)
+            self.cells.set(i, rand::random())
         }
+            
     }
 
     pub fn clear(&mut self) {
