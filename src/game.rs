@@ -1,4 +1,5 @@
 // Game container code
+
 use crate::fps;
 use crate::universe::Universe;
 
@@ -210,7 +211,7 @@ impl UniverseModel {
         } else if keys.only_shift() {
             self.universe.set_pulsar(row, col);
         } else {
-            self.universe.toggle_cell(self.universe.get_index(row, col));
+            self.universe.toggle_cell(row, col);
         }
     }
 }
