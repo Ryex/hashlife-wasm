@@ -69,7 +69,7 @@ impl Universe {
                 self.node(width / 2, height / 2),
             );
             let pop = self.get_population_children(&children);
-            let level = self.get_level_children(&children);
+            let level = self.get_level_children(&children) + 1;
             self.canonicalize(Node::with_children(width, height, children, pop, level))
         }
     }
@@ -108,7 +108,7 @@ impl Universe {
                 self.node_with_bits(w2, h2, &space[(sw * 3)..]),
             );
             let pop = self.get_population_children(&children);
-            let level = self.get_level_children(&children);
+            let level = self.get_level_children(&children) + 1;
             self.canonicalize(Node::with_children(width, height, children, pop, level))
         }
     }
@@ -124,7 +124,7 @@ impl Universe {
     ) -> NodeId {
         let children = SubNode::new(nw, ne, sw, se);
         let pop = self.get_population_children(&children);
-        let level = self.get_level_children(&children);
+        let level = self.get_level_children(&children) + 1;
         self.canonicalize(Node::with_children(width, height, children, pop, level))
     }
 
@@ -343,25 +343,61 @@ impl Universe {
         count
     }
 
-    pub fn expand_and_wrap_root(&mut self) -> NodeId {
-        let root = self.get_node(self.root).clone();
-        let border = self.node(self.width / 2, self.height / 2);
+    pub fn expand_and_wrap(&mut self, id: NodeId) -> NodeId {
+        let root = self.get_node(id).clone();
+        let br= self.node(self.width / 2, self.height / 2);
 
         let children = root.children().expect("root to have children");
         let (nw, ne, sw, se) = (children.nw(), children.ne(), children.sw(), children.se());
         let (w, h) = (self.width, self.height);
 
-        let nw_ex = self.node_with_children(w, h, border, sw, ne, nw);
-        let ne_ex = self.node_with_children(w, h, se, border, ne, nw);
-        let sw_ex = self.node_with_children(w, h, se, sw, border, nw);
-        let se_ex = self.node_with_children(w, h, se, sw, ne, border);
+        let nw_ex = self.node_with_children(w, h, br, sw, ne, nw);
+        let ne_ex = self.node_with_children(w, h, se, br, ne, nw);
+        let sw_ex = self.node_with_children(w, h, se, sw, br, nw);
+        let se_ex = self.node_with_children(w, h, se, sw, ne, br);
+
+        self.node_with_children(w * 2, h * 2, nw_ex, ne_ex, sw_ex, se_ex)
+    }
+
+    pub fn expand(&mut self, id: NodeId) -> NodeId {
+        let root = self.get_node(id).clone();
+        let br = self.node(self.width / 2, self.height / 2);
+
+        let children = root.children().expect("root to have children");
+        let (nw, ne, sw, se) = (children.nw(), children.ne(), children.sw(), children.se());
+        let (w, h) = (self.width, self.height);
+
+        let nw_ex = self.node_with_children(w, h, br, br, br, nw);
+        let ne_ex = self.node_with_children(w, h, br, br, ne, br);
+        let sw_ex = self.node_with_children(w, h, br, sw, br, br);
+        let se_ex = self.node_with_children(w, h, se, br, br, br);
 
         self.node_with_children(w * 2, h * 2, nw_ex, ne_ex, sw_ex, se_ex)
     }
 
     pub fn step(&mut self) {
-        let expanded_root = self.expand_and_wrap_root();
-        self.root = self.step_node(expanded_root);
+        let mut root_level = self.get_node(self.root).level();
+        let mut root_id = self.root;
+
+        root_id = self.expand_and_wrap(root_id);
+
+        // do extra expansions to make sure we have enough space
+        let mut exp = 0;
+        while root_level < 3 {
+            root_id = self.expand(root_id);
+            root_level = self.get_node(root_id).level();
+            exp += 1;
+        }
+
+        // step node and shrink one size down
+        root_id = self.step_node(root_id);
+
+        // unwrap any extra expansions
+        for _ in 0..exp {
+            root_id = self.centered_subnode(root_id);
+        }
+
+        self.root = root_id;
     }
 
     pub fn step_node(&mut self, id: NodeId) -> NodeId {
@@ -372,12 +408,8 @@ impl Universe {
         }
 
         let next = if node.population() == 0 {
-            if let Some(ch) = node.children() {
-                ch.nw()
-            } else {
-                id
-            }
-        } else if node.population() == 2 {
+            node.children().expect("node to have children").nw()
+        } else if node.level() == 2 {
             self.slow_sim(id)
         } else {
             let (w, h) = (node.rect().width() / 2, node.rect().height() / 2);
@@ -422,7 +454,7 @@ impl Universe {
 
         let mut next: BitSpace = BitSpace::with_capacity(w2 * h2);
 
-        for index in 0..(next.len()) {
+        for index in 0..(w2 * h2) {
             let (x, y) = morton::unravel_point(index);
             let s_index = morton::morton2(x + w22, y + h22);
             next.push(
@@ -474,8 +506,8 @@ impl Universe {
         let w_node: Node = self.get_node(w).clone();
         let e_node: Node = self.get_node(e).clone();
 
-        assert_eq!(w_node.rect().width(), e_node.rect().width());
-        assert_eq!(w_node.rect().height(), e_node.rect().height());
+        // assert_eq!(w_node.rect().width(), e_node.rect().width());
+        // assert_eq!(w_node.rect().height(), e_node.rect().height());
 
         let (w, h) = (w_node.rect().width() / 2, w_node.rect().height() / 2);
         let w_ch = w_node.children().expect("node to have children");
@@ -493,8 +525,8 @@ impl Universe {
         let n_node: Node = self.get_node(n).clone();
         let s_node: Node = self.get_node(s).clone();
 
-        assert_eq!(n_node.rect().width(), s_node.rect().width());
-        assert_eq!(n_node.rect().height(), s_node.rect().height());
+        // assert_eq!(n_node.rect().width(), s_node.rect().width());
+        // assert_eq!(n_node.rect().height(), s_node.rect().height());
 
         let (w, h) = (n_node.rect().width() / 2, n_node.rect().height() / 2);
         let n_ch = n_node.children().expect("node to have children");
@@ -511,7 +543,7 @@ impl Universe {
     fn centered_sub_subnode(&mut self, id: NodeId) -> NodeId {
         let node: Node = self.get_node(id).clone();
 
-        let (w, h) = (node.rect().width() / 2, node.rect().height() / 2);
+        let (w, h) = (node.rect().width() / 2 / 2, node.rect().height() / 2 / 2);
         let ch = node.children().expect("node to have children");
 
         let nw_c = self.get_children(ch.nw()).se();

@@ -25,20 +25,8 @@ pub fn interleave_with_zeros(mut n: usize) -> usize {
     (n ^ (n << 1)) & 0x5555_5555 // (4)
 }
 
-#[cfg(target_pointer_width = "64")]
-pub fn unravel(mut n: usize) -> usize {
-    n &= 0x5555_5555;
-    n |= n >> 1;
-    n &= 0x3333_3333;
-    n |= n >> 2;
-    n &= 0x0f0f_0f0f;
-    n |= n >> 4;
-    n &= 0x00ff_00ff;
-    n |= n >> 8;
-    n & 0x0000_ffff
-}
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_pointer_width = "64")]
 pub fn unravel(mut n: usize) -> usize {
     n &= 0x5555_5555_5555_5555;
     n |= n >> 1;
@@ -52,3 +40,18 @@ pub fn unravel(mut n: usize) -> usize {
     n |= n >> 16;
     n & 0x0000_0000_ffff_ffff
 }
+
+#[cfg(target_pointer_width = "32")]
+pub fn unravel(mut n: usize) -> usize {
+    n &= 0x5555_5555;
+    n |= n >> 1;
+    n &= 0x3333_3333;
+    n |= n >> 2;
+    n &= 0x0f0f_0f0f;
+    n |= n >> 4;
+    n &= 0x00ff_00ff;
+    n |= n >> 8;
+    n & 0x0000_ffff
+}
+
+
