@@ -227,7 +227,7 @@ impl Component for UniverseModel {
             link,
             active: false,
             n_steps: 1,
-            universe: Universe::new(256, 256),
+            universe: Universe::new(128, 128),
             fps: fps::Fps::default(),
             fps_html: String::default(),
             canvas_node_ref: NodeRef::default(),

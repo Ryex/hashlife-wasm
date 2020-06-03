@@ -164,6 +164,7 @@ impl Universe {
     }
 
     pub fn get_cells(&self) -> BitSpace {
+        let _timer = Timer::new("Universe::get_cells");
         let mut out: BitSpace = BitSpace::with_capacity(self.width * self.height);
 
         self.build_bitspace_from_node(self.root, &mut out);
@@ -376,6 +377,9 @@ impl Universe {
     }
 
     pub fn step(&mut self) {
+
+        let _timer = Timer::new("Universe::step");
+
         let mut root_level = self.get_node(self.root).level();
         let mut root_id = self.root;
 
@@ -557,5 +561,32 @@ impl Universe {
         let se = self.get_children(se_c).nw();
 
         self.node_with_children(w, h, nw, ne, sw, se)
+    }
+}
+
+impl Default for Universe {
+    fn default() -> Self {
+        Universe::new(64, 64)
+    }
+}
+
+
+extern crate web_sys;
+use web_sys::console;
+
+pub struct Timer<'a> {
+    name: &'a str,
+}
+
+impl<'a> Timer<'a> {
+    pub fn new(name: &'a str) -> Timer<'a> {
+        console::time_with_label(name);
+        Timer { name }
+    }
+}
+
+impl<'a> Drop for Timer<'a> {
+    fn drop(&mut self) {
+        console::time_end_with_label(self.name);
     }
 }
