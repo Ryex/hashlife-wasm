@@ -14,8 +14,10 @@ mod fps;
 mod game;
 pub mod universe;
 
+#[cfg(not(feature = "no-wasm"))]
 use wasm_bindgen::prelude::*;
 
+#[cfg(not(feature = "no-wasm"))]
 #[wasm_bindgen]
 pub fn run_app() -> Result<(), JsValue> {
     utils::set_panic_hook();

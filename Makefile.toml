@@ -10,15 +10,17 @@ args = ["clean"]
 [tasks.wasm_build]
 command = "wasm-pack"
 args = ["build", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
+dependencies = ["clean_web"]
 
 [tasks.wasm_build_profileing]
 command = "wasm-pack"
 args = ["build", "--profiling", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
+dependencies = ["clean_web"]
 
 [tasks.wasm_build_dev]
 command = "wasm-pack"
 args = ["build", "--dev", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
-
+dependencies = ["clean_web"]
 
 [tasks.test]
 command = "wasm-pack"
@@ -28,6 +30,10 @@ args = ["test", "--firefox", "--headless"]
 dependencies = [
     "wasm_build"
 ]
+
+[tasks.clean_web]
+script_runner = "@shell"
+script = ["rm -f ./static/*wasm*"]
 
 [tasks.serve_web]
 command = "miniserve"

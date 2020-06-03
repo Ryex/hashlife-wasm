@@ -10,3 +10,4 @@ wasm-pack.log
 !/static/*.css
 !/static/*.html
 .cargo-ok
+before.txt

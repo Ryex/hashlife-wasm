@@ -9,6 +9,8 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["wee_alloc"]
+no-wasm = []
+
 
 
 [dependencies]

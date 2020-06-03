@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 
 
 pub mod morton;
@@ -17,7 +20,10 @@ pub struct Universe {
     root: NodeId,
     arena: Vec<Node>,
     node_map: NodeMap,
-    next_node_map: NodeMap,
+    empty_node_map: HashMap<(usize, usize), NodeId>,
+    non_empty_node_map: HashMap<(usize, usize, u64), NodeId>,
+    with_child_node_map: HashMap<SubNode, NodeId>,
+    next_node_map: HashMap<NodeId, NodeId>,
     morton_space: morton::MortonSpace
 }
 
@@ -40,8 +46,11 @@ impl Universe {
             height: h,
             root: NodeId::new(0),
             arena: Vec::with_capacity(w),
-            node_map: NodeMap::new(),
-            next_node_map: NodeMap::new(),
+            node_map: HashMap::new(),
+            empty_node_map: HashMap::new(),
+            non_empty_node_map: HashMap::new(),
+            with_child_node_map: HashMap::new(),
+            next_node_map: HashMap::new(),
             morton_space: morton::MortonSpace::new(width, height)
         };
 
@@ -56,15 +65,20 @@ impl Universe {
             return *canon;
         }
         let next_index = self.arena.len();
-        self.arena.push(node.clone());
         let id = NodeId::new(next_index);
-        self.node_map.insert(node, id);
+        self.node_map.insert(node.clone(), id);
+        self.arena.push(node);
         id
     }
 
     pub fn node(&mut self, width: usize, height: usize) -> NodeId {
-        if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
-            self.canonicalize(Node::new(width, height))
+        let key = (width, height);
+        if let Some(node_id) = self.empty_node_map.get(&key) {
+            *node_id
+        } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
+            let node_id = self.canonicalize(Node::new(width, height));
+            self.empty_node_map.insert(key, node_id);
+            node_id
         } else {
             let children = SubNode::new(
                 self.node(width / 2, height / 2),
@@ -74,8 +88,64 @@ impl Universe {
             );
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
-            self.canonicalize(Node::with_children(width, height, children, pop, level))
+            let node_id = self.canonicalize(Node::with_children(width, height, children, pop, level));
+            self.empty_node_map.insert(key, node_id);
+            self.with_child_node_map.insert(children, node_id);
+            node_id
         }
+    }
+
+    pub fn node_with_bits(&mut self, width: usize, height: usize, space: &BitSpaceSlice) -> NodeId {
+        let mut hasher = DefaultHasher::new();
+        space.hash(&mut hasher);
+        let key = (width, height, hasher.finish());
+        if let Some(node_id) = self.non_empty_node_map.get(&key) {
+            *node_id
+        } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
+            let node_id = self.canonicalize(Node::with_bits(width, height, space));
+            self.non_empty_node_map.insert(key, node_id);
+            node_id
+        } else {
+            let (w2, h2) = (width / 2, height / 2);
+            let sw = w2 * h2;
+            let children = SubNode::new(
+                self.node_with_bits(w2, h2, &space[0..sw]),
+                self.node_with_bits(w2, h2, &space[sw..(sw * 2)]),
+                self.node_with_bits(w2, h2, &space[(sw * 2)..(sw * 3)]),
+                self.node_with_bits(w2, h2, &space[(sw * 3)..]),
+            );
+            let pop = self.get_population_children(&children);
+            let level = self.get_level_children(&children) + 1;
+            let node_id = self.canonicalize(Node::with_children(width, height, children, pop, level));
+            self.non_empty_node_map.insert(key, node_id);
+            self.with_child_node_map.insert(children, node_id);
+            node_id
+        }
+    }
+
+    pub fn node_with_children(
+        &mut self,
+        width: usize,
+        height: usize,
+        nw: NodeId,
+        ne: NodeId,
+        sw: NodeId,
+        se: NodeId,
+    ) -> NodeId {
+        let children = SubNode::new(nw, ne, sw, se);
+        if let Some(node_id) = self.with_child_node_map.get(&children) {
+            *node_id
+        } else {
+            let pop = self.get_population_children(&children);
+            let level = self.get_level_children(&children) + 1;
+            let node_id = self.canonicalize(Node::with_children(width, height, children, pop, level));
+            self.with_child_node_map.insert(children, node_id);
+            node_id
+        }
+    }
+
+    pub fn get_node(&self, id: NodeId) -> &Node {
+        self.arena.get(id.index()).expect("NodeId to be valid")
     }
 
     pub fn get_population(&self, id: NodeId) -> usize {
@@ -97,43 +167,6 @@ impl Universe {
 
     pub fn get_level_children(&self, children: &SubNode) -> usize {
         self.get_node(children.nw()).level()
-    }
-
-    pub fn node_with_bits(&mut self, width: usize, height: usize, space: &BitSpaceSlice) -> NodeId {
-        if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
-            self.canonicalize(Node::with_bits(width, height, space))
-        } else {
-            let (w2, h2) = (width / 2, height / 2);
-            let sw = w2 * h2;
-            let children = SubNode::new(
-                self.node_with_bits(w2, h2, &space[0..sw]),
-                self.node_with_bits(w2, h2, &space[sw..(sw * 2)]),
-                self.node_with_bits(w2, h2, &space[(sw * 2)..(sw * 3)]),
-                self.node_with_bits(w2, h2, &space[(sw * 3)..]),
-            );
-            let pop = self.get_population_children(&children);
-            let level = self.get_level_children(&children) + 1;
-            self.canonicalize(Node::with_children(width, height, children, pop, level))
-        }
-    }
-
-    pub fn node_with_children(
-        &mut self,
-        width: usize,
-        height: usize,
-        nw: NodeId,
-        ne: NodeId,
-        sw: NodeId,
-        se: NodeId,
-    ) -> NodeId {
-        let children = SubNode::new(nw, ne, sw, se);
-        let pop = self.get_population_children(&children);
-        let level = self.get_level_children(&children) + 1;
-        self.canonicalize(Node::with_children(width, height, children, pop, level))
-    }
-
-    pub fn get_node(&self, id: NodeId) -> &Node {
-        self.arena.get(id.index()).expect("NodeId to be valid")
     }
 
     pub fn get_morton(&self, row: usize, col: usize) -> usize {
@@ -168,7 +201,7 @@ impl Universe {
     }
 
     pub fn get_cells(&self) -> BitSpace {
-        let _timer = Timer::new("Universe::get_cells");
+        // let _timer = Timer::new("Universe::get_cells");
         let mut out: BitSpace = BitSpace::with_capacity(self.width * self.height);
 
         self.build_bitspace_from_node(self.root, &mut out);
@@ -177,6 +210,8 @@ impl Universe {
     }
 
     pub fn build_bitspace_from_node(&self, id: NodeId, space_out: &mut BitSpace) {
+
+        // let _timer = Timer::new("Universe::build_bitspace_from_node");
         let node = self.get_node(id);
 
         if let Some(children) = node.children() {
@@ -185,11 +220,7 @@ impl Universe {
             self.build_bitspace_from_node(children.sw(), space_out);
             self.build_bitspace_from_node(children.se(), space_out);
         } else {
-            space_out.extend(
-                node.space()
-                    .clone()
-                    .expect("Child node to have a bit space"),
-            );
+            space_out.extend(node.space().into_iter());
         }
     }
 
@@ -342,12 +373,13 @@ impl Universe {
     }
 
     pub fn expand_and_wrap(&mut self, id: NodeId) -> NodeId {
-        let root = self.get_node(id).clone();
-        let br= self.node(self.width / 2, self.height / 2);
-
-        let children = root.children().expect("root to have children");
-        let (nw, ne, sw, se) = (children.nw(), children.ne(), children.sw(), children.se());
+        let root = self.get_node(id);
         let (w, h) = (self.width, self.height);
+        let children = root.children().expect("root to have children");
+
+        let br = self.node(w / 2, h / 2);
+
+        let (nw, ne, sw, se) = (children.nw(), children.ne(), children.sw(), children.se());
 
         let nw_ex = self.node_with_children(w, h, br, sw, ne, nw);
         let ne_ex = self.node_with_children(w, h, se, br, ne, nw);
@@ -375,7 +407,7 @@ impl Universe {
 
     pub fn step(&mut self) {
 
-        let _timer = Timer::new("Universe::step");
+        // let _timer = Timer::new("Universe::step");
 
         let mut root_level = self.get_node(self.root).level();
         let mut root_id = self.root;
@@ -402,18 +434,34 @@ impl Universe {
     }
 
     pub fn step_node(&mut self, id: NodeId) -> NodeId {
-        let node: Node = self.get_node(id).clone();
 
-        if let Some(next) = self.next_node_map.get(&node) {
+        // return early if we know the result of this node
+        if let Some(next) = self.next_node_map.get(&id) {
             return *next;
         }
 
-        let next = if node.population() == 0 {
+        let node = self.get_node(id);
+
+        let population = node.population();
+        let level = node.level();
+        let (width, height) = (node.rect().width(), node.rect().height());
+        // if the population of this region is 0 then obiously we don't need to simulate it will still be 0
+        let next = if population == 0 {
             node.children().expect("node to have children").nw()
-        } else if node.level() == 2 {
+        }
+        // if the population is < 3 we know that the population will be zero next round
+        else if population < 3 {
+            self.node(width / 2, height / 2)
+        } else if level == 2 {
+            #[cfg(not(feature = "no-wasm"))]
+            let _timer = Timer::new("slow simulation");
+
             self.slow_sim(id)
         } else {
-            let (w, h) = (node.rect().width() / 2, node.rect().height() / 2);
+            #[cfg(not(feature = "no-wasm"))]
+            let _timer = Timer::new("building subnodes");
+
+            let (w, h) = (width / 2, height / 2);
             let ch = node.children().expect("node to have children");
 
             let n00 = self.centered_subnode(ch.nw());
@@ -439,13 +487,14 @@ impl Universe {
             self.node_with_children(w, h, nw, ne, sw, se)
         };
 
-        self.next_node_map.insert(node, next);
+        self.next_node_map.insert(id, next);
 
         next
     }
 
     pub fn slow_sim(&mut self, id: NodeId) -> NodeId {
-        let node: &Node = self.get_node(id);
+        // let _timer = Timer::new("Universe::slow_sim");
+        let node = self.get_node(id);
         let (w, h) = (node.rect().width(), node.rect().height());
         let (w2, h2) = (w / 2, h / 2);
         let (w22, h22) = (w2 / 2, h2 / 2);
@@ -462,17 +511,16 @@ impl Universe {
             next.push(count == 3 || (count == 2 && space[s_index]));
         }
 
-
         self.node_with_bits(w / 2, h / 2, &next)
     }
 
     fn get_children(&mut self, id: NodeId) -> SubNode {
-        let node: Node = self.get_node(id).clone();
+        let node = self.get_node(id);
         node.children().expect("node to have children")
     }
 
     fn centered_subnode(&mut self, id: NodeId) -> NodeId {
-        let node: Node = self.get_node(id).clone();
+        let node = self.get_node(id);
 
         let (w, h) = (node.rect().width() / 2, node.rect().height() / 2);
         let ch = node.children().expect("node to have children");
@@ -486,8 +534,8 @@ impl Universe {
     }
 
     fn centered_horizontal(&mut self, w: NodeId, e: NodeId) -> NodeId {
-        let w_node: Node = self.get_node(w).clone();
-        let e_node: Node = self.get_node(e).clone();
+        let w_node = self.get_node(w);
+        let e_node = self.get_node(e);
 
         // assert_eq!(w_node.rect().width(), e_node.rect().width());
         // assert_eq!(w_node.rect().height(), e_node.rect().height());
@@ -505,8 +553,8 @@ impl Universe {
     }
 
     fn centered_vertical(&mut self, n: NodeId, s: NodeId) -> NodeId {
-        let n_node: Node = self.get_node(n).clone();
-        let s_node: Node = self.get_node(s).clone();
+        let n_node = self.get_node(n);
+        let s_node = self.get_node(s);
 
         // assert_eq!(n_node.rect().width(), s_node.rect().width());
         // assert_eq!(n_node.rect().height(), s_node.rect().height());
@@ -524,7 +572,7 @@ impl Universe {
     }
 
     fn centered_sub_subnode(&mut self, id: NodeId) -> NodeId {
-        let node: Node = self.get_node(id).clone();
+        let node = self.get_node(id);
 
         let (w, h) = (node.rect().width() / 2 / 2, node.rect().height() / 2 / 2);
         let ch = node.children().expect("node to have children");

@@ -60,7 +60,7 @@ pub struct Node {
     rect: Rectangle,
     population: usize,
     level: usize,
-    space: Option<BitSpace>,
+    space: Option<Box<BitSpace>>,
     children: Option<SubNode>,
 }
 
@@ -70,7 +70,7 @@ impl Node {
             rect: Rectangle::new(width, height),
             population: 0,
             level: 0,
-            space: Some(bv::BitVec::repeat(false, width * height)),
+            space: Some(Box::new(bv::BitVec::repeat(false, width * height))),
             children: None,
         }
     }
@@ -80,7 +80,7 @@ impl Node {
             rect: Rectangle::new(width, height),
             population: space.count_ones(),
             level: 0,
-            space: Some(bv::BitVec::from_bitslice(space)),
+            space: Some(Box::new(bv::BitVec::from_bitslice(space))),
             children: None,
         }
     }
@@ -109,8 +109,8 @@ impl Node {
         &self.children
     }
 
-    pub fn space(&self) -> &Option<BitSpace> {
-        &self.space
+    pub fn space(&self) -> Box<BitSpace> {
+        self.space.clone().expect("node to have a bit space")
     }
 
     pub fn population(&self) -> usize {
@@ -122,7 +122,8 @@ impl Node {
     }
 
     pub fn get_cell(&self, row: usize, col: usize) -> Result<bool, &'static str> {
-        if let Some(space) = self.space() {
+        if self.has_space() {
+            let space = self.space();
             if row >= self.rect.width() {
                 Err("row out of range for width")
             } else if col >= self.rect.height() {
@@ -133,6 +134,10 @@ impl Node {
         } else {
             Err("Node doesn't have a bit space! ask a child.")
         }
+    }
+
+    pub fn has_space(&self) -> bool {
+        self.space.is_some()
     }
 
     pub fn has_children(&self) -> bool {
@@ -146,7 +151,7 @@ impl Default for Node {
             rect: Rectangle::new(2, 2),
             population: 0,
             level: 0,
-            space: Some(bv::BitVec::repeat(false, 4)),
+            space: Some(Box::new(bv::BitVec::repeat(false, 4))),
             children: None,
         }
     }
