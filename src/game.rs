@@ -125,8 +125,8 @@ impl UniverseModel {
         ctx.stroke();
     }
 
-    fn get_index(&self, row: usize, column: usize) -> usize {
-        row * self.universe.width() + column
+    fn get_index(&self, row: usize, col: usize) -> usize {
+        self.universe.get_morton(row, col)
     }
 
     fn draw_cells(&self, ctx: &web_sys::CanvasRenderingContext2d) {
