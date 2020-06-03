@@ -11,6 +11,10 @@ args = ["clean"]
 command = "wasm-pack"
 args = ["build", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
 
+[tasks.wasm_build_profileing]
+command = "wasm-pack"
+args = ["build", "--profiling", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
+
 [tasks.wasm_build_dev]
 command = "wasm-pack"
 args = ["build", "--dev", "--target", "web", "--out-name", "wasm", "--out-dir", "./static"]
@@ -20,22 +24,20 @@ args = ["build", "--dev", "--target", "web", "--out-name", "wasm", "--out-dir", 
 command = "wasm-pack"
 args = ["test", "--firefox", "--headless"]
 
-[tasks.build_web]
+[tasks.build]
 dependencies = [
     "wasm_build"
 ]
 
-[tasks.build_web_dev]
-dependencies = [
-    "wasm_build_dev"
-]
+[tasks.serve_web]
+command = "miniserve"
+args = ["./static", "--index", "index.html"]
 
 [tasks.serve]
-command = "miniserve"
-args = ["./static", "--index", "index.html"]
-dependencies = ["build_web"]
+dependencies = ["wasm_build", "serve_web"]
 
 [tasks.serve_dev]
-command = "miniserve"
-args = ["./static", "--index", "index.html"]
-dependencies = ["build_web_dev"]
+dependencies = ["wasm_build_dev", "serve_web"]
+
+[tasks.serve_profileing]
+dependencies = ["wasm_build_profileing", "serve_web"]

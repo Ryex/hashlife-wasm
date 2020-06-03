@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+
+
 pub mod morton;
 pub mod node;
 pub mod rect;
@@ -8,7 +10,7 @@ use super::universe::node::{BitSpace, BitSpaceSlice, Node, NodeId, SubNode};
 
 type NodeMap = HashMap<Node, NodeId>;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Universe {
     width: usize,
     height: usize,
@@ -16,6 +18,7 @@ pub struct Universe {
     arena: Vec<Node>,
     node_map: NodeMap,
     next_node_map: NodeMap,
+    morton_cache: morton::MortonCache
 }
 
 impl Universe {
@@ -39,6 +42,7 @@ impl Universe {
             arena: Vec::with_capacity(w),
             node_map: NodeMap::new(),
             next_node_map: NodeMap::new(),
+            morton_cache: morton::MortonCache::default()
         };
 
         let root = universe.node(width, height);
@@ -133,7 +137,11 @@ impl Universe {
     }
 
     pub fn get_morton(&self, row: usize, col: usize) -> usize {
-        morton::morton2(row, col)
+        if let Some(space) = self.morton_cache.map.get(&(self.width, self.height)) {
+            space.morton2(row, col)
+        } else {
+            morton::morton2(row, col)
+        }
     }
 
     pub fn width(&self) -> usize {
@@ -316,29 +324,31 @@ impl Universe {
         count
     }
 
-    fn live_neighbor_count_fast(&self, row: usize, column: usize, space: &BitSpaceSlice) -> usize {
+    fn live_neighbor_count_fast(&mut self, row: usize, column: usize, space: &BitSpaceSlice) -> usize {
         let mut count = 0;
+        let (width, height) = (self.width, self.height);
+        let ms = self.morton_cache.map.entry((width, height)).or_insert_with(|| {morton::MortonSpace::new(width, height)});
 
         let north = row - 1;
         let south = row + 1;
         let west = column - 1;
         let east = column + 1;
 
-        let nw = self.get_morton(north, west);
+        let nw = ms.morton2_cache(north, west);
         count += space[nw] as usize;
-        let n = self.get_morton(north, column);
+        let n = ms.morton2_cache(north, column);
         count += space[n] as usize;
-        let ne = self.get_morton(north, east);
+        let ne = ms.morton2_cache(north, east);
         count += space[ne] as usize;
-        let w = self.get_morton(row, west);
+        let w = ms.morton2_cache(row, west);
         count += space[w] as usize;
-        let e = self.get_morton(row, east);
+        let e = ms.morton2_cache(row, east);
         count += space[e] as usize;
-        let sw = self.get_morton(south, west);
+        let sw = ms.morton2_cache(south, west);
         count += space[sw] as usize;
-        let s = self.get_morton(south, column);
+        let s = ms.morton2_cache(south, column);
         count += space[s] as usize;
-        let se = self.get_morton(south, east);
+        let se = ms.morton2_cache(south, east);
         count += space[se] as usize;
 
         count

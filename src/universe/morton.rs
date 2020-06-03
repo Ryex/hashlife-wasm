@@ -1,3 +1,61 @@
+
+
+use std::collections::HashMap;
+
+
+#[derive(Debug, Clone)]
+pub struct MortonSpace {
+    width: usize,
+    height: usize,
+    table: Vec<Option<usize>>
+}
+
+impl MortonSpace {
+    pub fn new(width: usize, height: usize) -> Self {
+        MortonSpace {
+            width,
+            height,
+            table: vec![None; width * height],
+        }
+    }
+
+    pub fn morton2_cache(&mut self, x: usize, y: usize) -> usize {
+        if self.valid(x, y) {
+            self.table[x * self.width + y].unwrap()
+        } else {
+            let result = interleave_with_zeros(x) | (interleave_with_zeros(y) << 1);
+            self.table[x * self.width + y] = Some(result);
+            result
+        }
+    }
+
+    pub fn morton2(&self, x: usize, y: usize) -> usize {
+        if self.valid(x, y) {
+            self.table[x * self.width + y].unwrap()
+        } else {
+            interleave_with_zeros(x) | (interleave_with_zeros(y) << 1)
+        }
+    }
+
+
+    pub fn valid(&self, x: usize, y: usize) -> bool {
+        self.table[x * self.width + y].is_some()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MortonCache {
+    pub map: HashMap<(usize, usize), MortonSpace>
+}
+
+impl Default for MortonCache {
+    fn default() -> Self {
+        MortonCache {
+            map: HashMap::new()
+        }
+    }
+}
+
 pub fn morton2(x: usize, y: usize) -> usize {
     interleave_with_zeros(x) | (interleave_with_zeros(y) << 1)
 }
@@ -53,5 +111,7 @@ pub fn unravel(mut n: usize) -> usize {
     n |= n >> 8;
     n & 0x0000_ffff
 }
+
+
 
 

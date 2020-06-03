@@ -7,6 +7,9 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["wee_alloc"]
+
 
 [dependencies]
 yew = { version ="0.16",  features = ["web_sys"] }
@@ -48,4 +51,6 @@ wasm-bindgen-test = "0.2"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
-opt-level = "s"
+opt-level = 3
+lto = true
+#debug = true
