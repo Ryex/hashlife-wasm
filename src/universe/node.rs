@@ -8,8 +8,6 @@ use std::fmt::Debug;
 
 use std::hash::{Hash, Hasher};
 
-use std::ops::Deref;
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NodeId {
     index: usize,
@@ -184,15 +182,15 @@ impl Hash for Node {
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        if self.has_children() {
-            if other.has_children() {
-                self.children.as_ref().unwrap() == other.children.as_ref().unwrap()
+        if let Some(sch) = &self.children {
+            if let Some(och) = &other.children {
+                sch == och
             } else {
                 false
             }
-        } else if self.has_space() {
-            if other.has_space() {
-                self.space.as_ref().unwrap() == other.space.as_ref().unwrap()
+        } else if let Some(space) = &self.space {
+            if let Some(ospace) = &other.space {
+                space == ospace
             } else {
                 false
             }

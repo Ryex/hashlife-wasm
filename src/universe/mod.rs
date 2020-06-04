@@ -24,7 +24,7 @@ pub struct Universe {
     arena: Vec<Box<Node>>,
     node_map: NodeMap,
     empty_node_map: HashMap<(usize, usize), NodeId>,
-    non_empty_node_map: HashMap<Vec<u8>, NodeId>,
+    non_empty_node_map: HashMap<BitSpace, NodeId>,
     next_node_map: HashMap<NodeId, NodeId>,
     morton_space: morton::MortonSpace
 }
@@ -97,7 +97,7 @@ impl Universe {
 
     pub fn node_with_bits(&mut self, width: usize, height: usize, space: &BitSpaceSlice) -> NodeId {
 
-        let key: Vec<u8> = space.as_slice().to_vec();
+        let key: BitSpace = space.to_vec();
         if let Some(node_id) = self.non_empty_node_map.get(&key) {
             *node_id
         } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
@@ -206,6 +206,7 @@ impl Universe {
     }
 
     pub fn get_cells(&self) -> BitSpace {
+        // #[cfg(not(feature = "no-wasm"))]
         // let _timer = Timer::new("Universe::get_cells");
         let mut out: BitSpace = BitSpace::with_capacity(self.width * self.height);
 
@@ -216,6 +217,7 @@ impl Universe {
 
     pub fn build_bitspace_from_node(&self, id: NodeId, space_out: &mut BitSpace) {
 
+        // #[cfg(not(feature = "no-wasm"))]
         // let _timer = Timer::new("Universe::build_bitspace_from_node");
         let node = self.get_node(id);
 
@@ -412,6 +414,7 @@ impl Universe {
 
     pub fn step(&mut self) {
 
+        // #[cfg(not(feature = "no-wasm"))]
         // let _timer = Timer::new("Universe::step");
 
         let mut root_level = self.get_node(self.root).level();
@@ -463,8 +466,8 @@ impl Universe {
 
             self.slow_sim(id)
         } else {
-            #[cfg(not(feature = "no-wasm"))]
-            let _timer = Timer::new("building subnodes");
+            // #[cfg(not(feature = "no-wasm"))]
+            // let _timer = Timer::new("building subnodes");
 
             let (w, h) = (width / 2, height / 2);
             let ch = node.children().clone().expect("node to have children");
