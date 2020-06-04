@@ -20,21 +20,13 @@ impl MortonSpace {
     }
 
     pub fn morton2_cache(&mut self, x: usize, y: usize) -> usize {
-        if self.valid(x, y) {
-            self.table[x * self.width + y].unwrap()
-        } else {
-            let result = interleave_with_zeros(x) | (interleave_with_zeros(y) << 1);
-            self.table[x * self.width + y] = Some(result);
-            result
-        }
+        let result = self.morton2(x, y);
+        self.table[x * self.width + y] = Some(result);
+        result
     }
 
     pub fn morton2(&self, x: usize, y: usize) -> usize {
-        if self.valid(x, y) {
-            self.table[x * self.width + y].unwrap()
-        } else {
-            interleave_with_zeros(x) | (interleave_with_zeros(y) << 1)
-        }
+        self.table[x * self.width + y].unwrap_or_else(|| interleave_with_zeros(x) | (interleave_with_zeros(y) << 1))
     }
 
 
