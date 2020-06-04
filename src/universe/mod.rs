@@ -512,13 +512,26 @@ impl Universe {
         let mut space: BitSpace = BitSpace::with_capacity(w * h);
         self.build_bitspace_from_node(id, &mut space);
 
-        let mut next: BitSpace = BitSpace::with_capacity(w2 * h2);
+        let mut next: BitSpace = BitSpace::repeat(false, w2 * h2);
 
-        for index in 0..(w2 * h2) {
-            let (x, y) = morton::unravel_point(index);
-            let s_index = morton::morton2(x + w22, y + h22);
-            let count = self.live_neighbor_count_fast(x + w22, y + h22, &space);
-            next.push(count == 3 || (count == 2 && space[s_index]));
+        let range: Vec<_> = (0..(w2 * h2)).collect();
+
+        let slice = next.as_mut_slice();
+        for (cur, chunk) in range.chunks(8).enumerate() {
+            let mut ele = 0u8;
+            let mut shifts: u8 = 0;
+            for index in chunk {
+                let (x, y) = morton::unravel_point(*index);
+                let s_index = morton::morton2(x + w22, y + h22);
+                let count = self.live_neighbor_count_fast(x + w22, y + h22, &space);
+                ele = (ele << 1) & (count == 3 || (count == 2 && space[s_index])) as u8;
+                shifts += 1;
+            }
+            while shifts < 8 {
+                ele <<= 1;
+                shifts += 1;
+            }
+            slice[cur] = ele;
         }
 
         self.node_with_bits(w / 2, h / 2, &next)
