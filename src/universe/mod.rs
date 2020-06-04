@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-
+extern crate rand;
+extern crate rand_chacha;
+use rand::{Rng, SeedableRng};
 
 pub mod morton;
 pub mod node;
@@ -193,8 +195,19 @@ impl Universe {
 
     pub fn fill_cells_random(&mut self) {
         let mut space: BitSpace = BitSpace::with_capacity(self.width * self.height);
-        for _ in 0..(self.width * self.height) {
-            space.push(rand::random());
+        #[cfg(feature = "no-wasm")]
+        {
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(10);
+            for _ in 0..(self.width * self.height) {
+                space.push(rng.gen());
+            }
+        }
+
+        #[cfg(not(feature = "no-wasm"))]
+        {
+            for _ in 0..(self.width * self.height) {
+                space.push(rand::random());
+            }
         }
 
         self.root = self.node_with_bits(self.width, self.height, &space);
