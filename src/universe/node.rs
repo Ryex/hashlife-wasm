@@ -57,6 +57,15 @@ impl SubNode {
     pub fn new(nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> Self {
         SubNode { nw, ne, sw, se }
     }
+
+    pub fn get_key(&self) -> NodeKey {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+
+        NodeKey {
+            hash: hasher.finish()
+        }
+    }
 }
 
 pub type BitSpace = bv::BitVec<bv::Msb0, u8>;

@@ -24,7 +24,7 @@ pub struct Universe {
     node_map: NodeMap,
     empty_node_map: HashMap<(usize, usize), NodeId>,
     non_empty_node_map: HashMap<(usize, usize, u64), NodeId>,
-    with_child_node_map: HashMap<SubNode, NodeId>,
+    with_child_node_map: NodeMap,
     next_node_map: HashMap<NodeId, NodeId>,
     morton_space: morton::MortonSpace
 }
@@ -93,7 +93,7 @@ impl Universe {
             let level = self.get_level_children(&children) + 1;
             let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
             self.empty_node_map.insert(key, node_id);
-            self.with_child_node_map.insert(children, node_id);
+            self.with_child_node_map.insert(children.get_key(), node_id);
             node_id
         }
     }
@@ -121,7 +121,7 @@ impl Universe {
             let level = self.get_level_children(&children) + 1;
             let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
             self.non_empty_node_map.insert(key, node_id);
-            self.with_child_node_map.insert(children, node_id);
+            self.with_child_node_map.insert(children.get_key(), node_id);
             node_id
         }
     }
@@ -136,13 +136,14 @@ impl Universe {
         se: NodeId,
     ) -> NodeId {
         let children = SubNode::new(nw, ne, sw, se);
-        if let Some(node_id) = self.with_child_node_map.get(&children) {
+        let k = children.get_key();
+        if let Some(node_id) = self.with_child_node_map.get(&k) {
             *node_id
         } else {
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
             let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
-            self.with_child_node_map.insert(children, node_id);
+            self.with_child_node_map.insert(k, node_id);
             node_id
         }
     }
