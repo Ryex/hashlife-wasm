@@ -136,16 +136,9 @@ impl Universe {
         se: NodeId,
     ) -> NodeId {
         let children = SubNode::new(nw, ne, sw, se);
-        let k = children.get_key();
-        if let Some(node_id) = self.with_child_node_map.get(&k) {
-            *node_id
-        } else {
-            let pop = self.get_population_children(&children);
-            let level = self.get_level_children(&children) + 1;
-            let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
-            self.with_child_node_map.insert(k, node_id);
-            node_id
-        }
+        let pop = self.get_population_children(&children);
+        let level = self.get_level_children(&children) + 1;
+        self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)))
     }
 
     pub fn get_node(&self, id: NodeId) -> &Box<Node> {
