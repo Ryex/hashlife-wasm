@@ -7,6 +7,8 @@ extern crate rand;
 extern crate rand_chacha;
 use rand::{Rng, SeedableRng};
 
+// use bitvec::prelude::*;
+
 pub mod morton;
 pub mod node;
 pub mod rect;
@@ -524,7 +526,8 @@ impl Universe {
                 let (x, y) = morton::unravel_point(*index);
                 let s_index = morton::morton2(x + w22, y + h22);
                 let count = self.live_neighbor_count_fast(x + w22, y + h22, &space);
-                ele = (ele << 1) & (count == 3 || (count == 2 && space[s_index])) as u8;
+                let alive = count == 3 || (count == 2 && space[s_index]);
+                ele = (ele << 1) | (alive as u8);
                 shifts += 1;
             }
             while shifts < 8 {
