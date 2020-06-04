@@ -11,16 +11,16 @@ pub mod morton;
 pub mod node;
 pub mod rect;
 
-use super::universe::node::{BitSpace, BitSpaceSlice, Node, NodeId, SubNode};
+use super::universe::node::{BitSpace, BitSpaceSlice, Node, NodeId, SubNode, NodeKey};
 
-type NodeMap = HashMap<Node, NodeId>;
+type NodeMap = HashMap<NodeKey, NodeId>;
 
 #[derive(Debug, Clone)]
 pub struct Universe {
     width: usize,
     height: usize,
     root: NodeId,
-    arena: Vec<Node>,
+    arena: Vec<Box<Node>>,
     node_map: NodeMap,
     empty_node_map: HashMap<(usize, usize), NodeId>,
     non_empty_node_map: HashMap<(usize, usize, u64), NodeId>,
@@ -62,13 +62,14 @@ impl Universe {
         universe
     }
 
-    fn canonicalize(&mut self, node: Node) -> NodeId {
-        if let Some(canon) = self.node_map.get(&node) {
+    fn canonicalize(&mut self, node: Box<Node>) -> NodeId {
+        let key = node.get_key();
+        if let Some(canon) = self.node_map.get(&key) {
             return *canon;
         }
         let next_index = self.arena.len();
         let id = NodeId::new(next_index);
-        self.node_map.insert(node.clone(), id);
+        self.node_map.insert(key, id);
         self.arena.push(node);
         id
     }
@@ -78,7 +79,7 @@ impl Universe {
         if let Some(node_id) = self.empty_node_map.get(&key) {
             *node_id
         } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
-            let node_id = self.canonicalize(Node::new(width, height));
+            let node_id = self.canonicalize(Box::new(Node::new(width, height)));
             self.empty_node_map.insert(key, node_id);
             node_id
         } else {
@@ -90,7 +91,7 @@ impl Universe {
             );
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
-            let node_id = self.canonicalize(Node::with_children(width, height, children, pop, level));
+            let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
             self.empty_node_map.insert(key, node_id);
             self.with_child_node_map.insert(children, node_id);
             node_id
@@ -104,7 +105,7 @@ impl Universe {
         if let Some(node_id) = self.non_empty_node_map.get(&key) {
             *node_id
         } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
-            let node_id = self.canonicalize(Node::with_bits(width, height, space));
+            let node_id = self.canonicalize(Box::new(Node::with_bits(width, height, space)));
             self.non_empty_node_map.insert(key, node_id);
             node_id
         } else {
@@ -118,7 +119,7 @@ impl Universe {
             );
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
-            let node_id = self.canonicalize(Node::with_children(width, height, children, pop, level));
+            let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
             self.non_empty_node_map.insert(key, node_id);
             self.with_child_node_map.insert(children, node_id);
             node_id
@@ -140,13 +141,13 @@ impl Universe {
         } else {
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
-            let node_id = self.canonicalize(Node::with_children(width, height, children, pop, level));
+            let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
             self.with_child_node_map.insert(children, node_id);
             node_id
         }
     }
 
-    pub fn get_node(&self, id: NodeId) -> &Node {
+    pub fn get_node(&self, id: NodeId) -> &Box<Node> {
         self.arena.get(id.index()).expect("NodeId to be valid")
     }
 
@@ -195,6 +196,7 @@ impl Universe {
 
     pub fn fill_cells_random(&mut self) {
         let mut space: BitSpace = BitSpace::with_capacity(self.width * self.height);
+ 
         #[cfg(feature = "no-wasm")]
         {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(10);
@@ -209,6 +211,7 @@ impl Universe {
                 space.push(rand::random());
             }
         }
+
 
         self.root = self.node_with_bits(self.width, self.height, &space);
     }

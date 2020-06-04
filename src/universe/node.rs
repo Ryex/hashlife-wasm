@@ -5,11 +5,18 @@ use bitvec::prelude as bv;
 use super::rect::Rectangle;
 
 use std::fmt::Debug;
-use std::hash::Hash;
+
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NodeId {
     index: usize,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct NodeKey {
+    hash: u64,
 }
 
 impl NodeId {
@@ -142,6 +149,15 @@ impl Node {
 
     pub fn has_children(&self) -> bool {
         self.children.is_some()
+    }
+
+    pub fn get_key(&self) -> NodeKey {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+
+        NodeKey {
+            hash: hasher.finish()
+        }
     }
 }
 
