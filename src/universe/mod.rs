@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 
 extern crate rand;
 extern crate rand_chacha;
@@ -13,9 +12,9 @@ pub mod morton;
 pub mod node;
 pub mod rect;
 
-use super::universe::node::{BitSpace, BitSpaceSlice, Node, NodeId, SubNode, NodeKey};
+use super::universe::node::{BitSpace, BitSpaceSlice, Node, NodeId, SubNode};
 
-type NodeMap = HashMap<NodeKey, NodeId>;
+type NodeMap = HashMap<Node, NodeId>;
 
 #[derive(Debug, Clone)]
 pub struct Universe {
@@ -25,8 +24,7 @@ pub struct Universe {
     arena: Vec<Box<Node>>,
     node_map: NodeMap,
     empty_node_map: HashMap<(usize, usize), NodeId>,
-    non_empty_node_map: HashMap<(usize, usize, u64), NodeId>,
-    with_child_node_map: NodeMap,
+    non_empty_node_map: HashMap<Vec<u8>, NodeId>,
     next_node_map: HashMap<NodeId, NodeId>,
     morton_space: morton::MortonSpace
 }
@@ -53,7 +51,6 @@ impl Universe {
             node_map: HashMap::new(),
             empty_node_map: HashMap::new(),
             non_empty_node_map: HashMap::new(),
-            with_child_node_map: HashMap::new(),
             next_node_map: HashMap::new(),
             morton_space: morton::MortonSpace::new(width, height)
         };
@@ -65,13 +62,12 @@ impl Universe {
     }
 
     fn canonicalize(&mut self, node: Box<Node>) -> NodeId {
-        let key = node.get_key();
-        if let Some(canon) = self.node_map.get(&key) {
+        if let Some(canon) = self.node_map.get(&node) {
             return *canon;
         }
         let next_index = self.arena.len();
         let id = NodeId::new(next_index);
-        self.node_map.insert(key, id);
+        self.node_map.insert(node.deref().clone(), id);
         self.arena.push(node);
         id
     }
@@ -85,25 +81,23 @@ impl Universe {
             self.empty_node_map.insert(key, node_id);
             node_id
         } else {
-            let children = SubNode::new(
+            let children = Box::new(SubNode::new(
                 self.node(width / 2, height / 2),
                 self.node(width / 2, height / 2),
                 self.node(width / 2, height / 2),
                 self.node(width / 2, height / 2),
-            );
+            ));
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
             let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
             self.empty_node_map.insert(key, node_id);
-            self.with_child_node_map.insert(children.get_key(), node_id);
             node_id
         }
     }
 
     pub fn node_with_bits(&mut self, width: usize, height: usize, space: &BitSpaceSlice) -> NodeId {
-        let mut hasher = DefaultHasher::new();
-        space.hash(&mut hasher);
-        let key = (width, height, hasher.finish());
+
+        let key: Vec<u8> = space.as_slice().to_vec();
         if let Some(node_id) = self.non_empty_node_map.get(&key) {
             *node_id
         } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
@@ -113,17 +107,16 @@ impl Universe {
         } else {
             let (w2, h2) = (width / 2, height / 2);
             let sw = w2 * h2;
-            let children = SubNode::new(
+            let children = Box::new(SubNode::new(
                 self.node_with_bits(w2, h2, &space[0..sw]),
                 self.node_with_bits(w2, h2, &space[sw..(sw * 2)]),
                 self.node_with_bits(w2, h2, &space[(sw * 2)..(sw * 3)]),
                 self.node_with_bits(w2, h2, &space[(sw * 3)..]),
-            );
+            ));
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
             let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
             self.non_empty_node_map.insert(key, node_id);
-            self.with_child_node_map.insert(children.get_key(), node_id);
             node_id
         }
     }
@@ -137,7 +130,7 @@ impl Universe {
         sw: NodeId,
         se: NodeId,
     ) -> NodeId {
-        let children = SubNode::new(nw, ne, sw, se);
+        let children = Box::new(SubNode::new(nw, ne, sw, se));
         let pop = self.get_population_children(&children);
         let level = self.get_level_children(&children) + 1;
         self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)))
@@ -227,10 +220,10 @@ impl Universe {
         let node = self.get_node(id);
 
         if let Some(children) = node.children() {
-            self.build_bitspace_from_node(children.nw(), space_out);
-            self.build_bitspace_from_node(children.ne(), space_out);
-            self.build_bitspace_from_node(children.sw(), space_out);
-            self.build_bitspace_from_node(children.se(), space_out);
+            self.build_bitspace_from_node((*children).nw(), space_out);
+            self.build_bitspace_from_node(children.deref().ne(), space_out);
+            self.build_bitspace_from_node((*children).sw(), space_out);
+            self.build_bitspace_from_node((*children).se(), space_out);
         } else {
             space_out.extend(node.space().into_iter());
         }
@@ -265,7 +258,7 @@ impl Universe {
                     self.get_cell_node(row, col % pivot_h, children.sw())
                 }
             } else if col < pivot_h {
-                self.get_cell_node(row % pivot_w, col, children.ne())
+                self.get_cell_node(row % pivot_w, col, children.deref().ne())
             } else {
                 self.get_cell_node(row % pivot_w, col % pivot_h, children.se())
             }
@@ -387,11 +380,11 @@ impl Universe {
     pub fn expand_and_wrap(&mut self, id: NodeId) -> NodeId {
         let root = self.get_node(id);
         let (w, h) = (self.width, self.height);
-        let children = root.children().expect("root to have children");
+        let children = root.children().clone().expect("root to have children");
 
         let br = self.node(w / 2, h / 2);
 
-        let (nw, ne, sw, se) = (children.nw(), children.ne(), children.sw(), children.se());
+        let (nw, ne, sw, se) = (children.nw(), children.deref().ne(), children.sw(), children.se());
 
         let nw_ex = self.node_with_children(w, h, br, sw, ne, nw);
         let ne_ex = self.node_with_children(w, h, se, br, ne, nw);
@@ -405,8 +398,8 @@ impl Universe {
         let root = self.get_node(id).clone();
         let br = self.node(self.width / 2, self.height / 2);
 
-        let children = root.children().expect("root to have children");
-        let (nw, ne, sw, se) = (children.nw(), children.ne(), children.sw(), children.se());
+        let children = root.children().clone().expect("root to have children");
+        let (nw, ne, sw, se) = (children.nw(), children.deref().ne(), children.sw(), children.se());
         let (w, h) = (self.width, self.height);
 
         let nw_ex = self.node_with_children(w, h, br, br, br, nw);
@@ -459,7 +452,7 @@ impl Universe {
         let (width, height) = (node.rect().width(), node.rect().height());
         // if the population of this region is 0 then obiously we don't need to simulate it will still be 0
         let next = if population == 0 {
-            node.children().expect("node to have children").nw()
+            node.children().clone().expect("node to have children").nw()
         }
         // if the population is < 3 we know that the population will be zero next round
         else if population < 3 {
@@ -474,14 +467,14 @@ impl Universe {
             let _timer = Timer::new("building subnodes");
 
             let (w, h) = (width / 2, height / 2);
-            let ch = node.children().expect("node to have children");
+            let ch = node.children().clone().expect("node to have children");
 
             let n00 = self.centered_subnode(ch.nw());
-            let n01 = self.centered_horizontal(ch.nw(), ch.ne());
-            let n02 = self.centered_subnode(ch.ne());
+            let n01 = self.centered_horizontal(ch.nw(), ch.deref().ne());
+            let n02 = self.centered_subnode(ch.deref().ne());
             let n10 = self.centered_vertical(ch.nw(), ch.sw());
             let n11 = self.centered_sub_subnode(id);
-            let n12 = self.centered_vertical(ch.ne(), ch.se());
+            let n12 = self.centered_vertical(ch.deref().ne(), ch.se());
             let n20 = self.centered_subnode(ch.sw());
             let n21 = self.centered_horizontal(ch.sw(), ch.se());
             let n22 = self.centered_subnode(ch.se());
@@ -540,20 +533,20 @@ impl Universe {
         self.node_with_bits(w / 2, h / 2, &next)
     }
 
-    fn get_children(&mut self, id: NodeId) -> SubNode {
+    fn get_children(&mut self, id: NodeId) -> Box<SubNode> {
         let node = self.get_node(id);
-        node.children().expect("node to have children")
+        node.children().clone().expect("node to have children")
     }
 
     fn centered_subnode(&mut self, id: NodeId) -> NodeId {
         let node = self.get_node(id);
 
         let (w, h) = (node.rect().width() / 2, node.rect().height() / 2);
-        let ch = node.children().expect("node to have children");
+        let ch = node.children().clone().expect("node to have children");
 
         let nw = self.get_children(ch.nw()).se();
-        let ne = self.get_children(ch.ne()).sw();
-        let sw = self.get_children(ch.sw()).ne();
+        let ne = self.get_children(ch.deref().ne()).sw();
+        let sw = self.get_children(ch.sw()).deref().ne();
         let se = self.get_children(ch.se()).nw();
 
         self.node_with_children(w, h, nw, ne, sw, se)
@@ -567,12 +560,12 @@ impl Universe {
         // assert_eq!(w_node.rect().height(), e_node.rect().height());
 
         let (w, h) = (w_node.rect().width() / 2, w_node.rect().height() / 2);
-        let w_ch = w_node.children().expect("node to have children");
-        let e_ch = e_node.children().expect("node to have children");
+        let w_ch = w_node.children().clone().expect("node to have children");
+        let e_ch = e_node.children().clone().expect("node to have children");
 
-        let nw = self.get_children(w_ch.ne()).se();
+        let nw = self.get_children(w_ch.deref().ne()).se();
         let ne = self.get_children(e_ch.nw()).sw();
-        let sw = self.get_children(w_ch.se()).ne();
+        let sw = self.get_children(w_ch.se()).deref().ne();
         let se = self.get_children(e_ch.sw()).nw();
 
         self.node_with_children(w, h, nw, ne, sw, se)
@@ -586,13 +579,13 @@ impl Universe {
         // assert_eq!(n_node.rect().height(), s_node.rect().height());
 
         let (w, h) = (n_node.rect().width() / 2, n_node.rect().height() / 2);
-        let n_ch = n_node.children().expect("node to have children");
-        let s_ch = s_node.children().expect("node to have children");
+        let n_ch = n_node.children().clone().expect("node to have children");
+        let s_ch = s_node.children().clone().expect("node to have children");
 
         let nw = self.get_children(n_ch.sw()).se();
         let ne = self.get_children(n_ch.se()).sw();
-        let sw = self.get_children(s_ch.nw()).ne();
-        let se = self.get_children(s_ch.ne()).nw();
+        let sw = self.get_children(s_ch.nw()).deref().ne();
+        let se = self.get_children(s_ch.deref().ne()).nw();
 
         self.node_with_children(w, h, nw, ne, sw, se)
     }
@@ -601,16 +594,16 @@ impl Universe {
         let node = self.get_node(id);
 
         let (w, h) = (node.rect().width() / 2 / 2, node.rect().height() / 2 / 2);
-        let ch = node.children().expect("node to have children");
+        let ch = node.children().clone().expect("node to have children");
 
         let nw_c = self.get_children(ch.nw()).se();
-        let ne_c = self.get_children(ch.ne()).sw();
-        let sw_c = self.get_children(ch.sw()).ne();
+        let ne_c = self.get_children(ch.deref().ne()).sw();
+        let sw_c = self.get_children(ch.sw()).deref().ne();
         let se_c = self.get_children(ch.se()).nw();
 
         let nw = self.get_children(nw_c).se();
         let ne = self.get_children(ne_c).sw();
-        let sw = self.get_children(sw_c).ne();
+        let sw = self.get_children(sw_c).deref().ne();
         let se = self.get_children(se_c).nw();
 
         self.node_with_children(w, h, nw, ne, sw, se)

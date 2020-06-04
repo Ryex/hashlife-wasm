@@ -6,17 +6,11 @@ use super::rect::Rectangle;
 
 use std::fmt::Debug;
 
-use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NodeId {
     index: usize,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct NodeKey {
-    hash: u64,
 }
 
 impl NodeId {
@@ -29,7 +23,7 @@ impl NodeId {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq)]
 pub struct SubNode {
     nw: NodeId,
     ne: NodeId,
@@ -58,26 +52,36 @@ impl SubNode {
         SubNode { nw, ne, sw, se }
     }
 
-    pub fn get_key(&self) -> NodeKey {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
+}
 
-        NodeKey {
-            hash: hasher.finish()
-        }
+impl Hash for SubNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.nw.index.hash(state);
+        self.ne.index.hash(state);
+        self.sw.index.hash(state);
+        self.se.index.hash(state);
+    }
+}
+
+impl PartialEq for SubNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.nw.index == other.nw.index &&
+        self.ne.index == other.ne.index &&
+        self.sw.index == other.sw.index &&
+        self.se.index == other.se.index
     }
 }
 
 pub type BitSpace = bv::BitVec<bv::Msb0, u8>;
 pub type BitSpaceSlice = bv::BitSlice<bv::Msb0, u8>;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub struct Node {
     rect: Rectangle,
     population: usize,
     level: usize,
     space: Option<Box<BitSpace>>,
-    children: Option<SubNode>,
+    children: Option<Box<SubNode>>,
 }
 
 impl Node {
@@ -104,7 +108,7 @@ impl Node {
     pub fn with_children(
         width: usize,
         height: usize,
-        children: SubNode,
+        children: Box<SubNode>,
         population: usize,
         level: usize,
     ) -> Self {
@@ -121,7 +125,7 @@ impl Node {
         &self.rect
     }
 
-    pub fn children(&self) -> &Option<SubNode> {
+    pub fn children(&self) -> &Option<Box<SubNode>> {
         &self.children
     }
 
@@ -160,13 +164,34 @@ impl Node {
         self.children.is_some()
     }
 
-    pub fn get_key(&self) -> NodeKey {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
+}
 
-        NodeKey {
-            hash: hasher.finish()
+impl Hash for Node {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        if self.has_children() {
+            self.children.hash(state);
+        } else if self.has_space() {
+            self.space.hash(state);
+        } else {
+            self.rect.hash(state);
+            self.population.hash(state);
+            self.level.hash(state);
         }
+    }
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        if self.has_children() {
+            self.children == other.children
+        } else if self.has_space() {
+            self.space == other.space
+        } else {
+            self.rect == other.rect &&
+            self.population == other.population &&
+            self.level == other.level
+        }
+
     }
 }
 
