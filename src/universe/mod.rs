@@ -363,7 +363,7 @@ impl Universe {
         count
     }
 
-    fn live_neighbor_count_fast(&mut self, row: usize, column: usize, space: &BitSpaceSlice) -> usize {
+    fn live_neighbor_count_fast(&mut self, row: usize, column: usize, space: &BitSpaceSlice) -> u8 {
         let mut count = 0;
         let ms = &mut self.morton_space;
 
@@ -372,14 +372,14 @@ impl Universe {
         let west = column - 1;
         let east = column + 1;
 
-        count += space[ms.morton2_cache(north, west)] as usize;
-        count += space[ms.morton2_cache(north, column)] as usize;
-        count += space[ms.morton2_cache(north, east)] as usize;
-        count += space[ms.morton2_cache(row, west)] as usize;
-        count += space[ms.morton2_cache(row, east)] as usize;
-        count += space[ms.morton2_cache(south, west)] as usize;
-        count += space[ms.morton2_cache(south, column)] as usize;
-        count += space[ms.morton2_cache(south, east)] as usize;
+        count += space[ms.morton2_cache(north, west)]   as u8;
+        count += space[ms.morton2_cache(north, column)] as u8;
+        count += space[ms.morton2_cache(north, east)]   as u8;
+        count += space[ms.morton2_cache(row, west)]     as u8;
+        count += space[ms.morton2_cache(row, east)]     as u8;
+        count += space[ms.morton2_cache(south, west)]   as u8;
+        count += space[ms.morton2_cache(south, column)] as u8;
+        count += space[ms.morton2_cache(south, east)]   as u8;
 
         count
     }
