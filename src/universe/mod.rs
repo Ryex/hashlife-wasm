@@ -30,8 +30,8 @@ pub struct Universe {
 }
 
 impl Universe {
-    const MIN_NODE_WIDTH: usize = 2;
-    const MIN_NODE_HEIGHT: usize = 2;
+    const MIN_NODE_WIDTH: usize = 4;
+    const MIN_NODE_HEIGHT: usize = 4;
 
     pub fn new(width: usize, height: usize) -> Self {
         let w = if width % 2 != 0 { width + 1 } else { width };
