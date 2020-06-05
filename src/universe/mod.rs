@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use std::ops::Deref;
 
 extern crate rand;
+
+#[cfg(feature = "no-wasm")]
 extern crate rand_chacha;
+#[cfg(feature = "no-wasm")]
 use rand::{Rng, SeedableRng};
 
 // use bitvec::prelude::*;
@@ -136,8 +139,8 @@ impl Universe {
         self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)))
     }
 
-    pub fn get_node(&self, id: NodeId) -> &Box<Node> {
-        self.arena.get(id.index()).expect("NodeId to be valid")
+    pub fn get_node(&self, id: NodeId) -> &Node {
+        self.arena.get(id.index()).expect("NodeId to be valid").deref()
     }
 
     pub fn get_population(&self, id: NodeId) -> usize {
@@ -185,7 +188,7 @@ impl Universe {
 
     pub fn fill_cells_random(&mut self) {
         let mut space: BitSpace = BitSpace::with_capacity(self.width * self.height);
- 
+
         #[cfg(feature = "no-wasm")]
         {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(10);
