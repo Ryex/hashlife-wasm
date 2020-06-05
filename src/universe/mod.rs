@@ -208,11 +208,13 @@ impl Universe {
     pub fn get_cells(&self) -> BitSpace {
         // #[cfg(not(feature = "no-wasm"))]
         // let _timer = Timer::new("Universe::get_cells");
-        let mut out: BitSpace = BitSpace::with_capacity(self.width * self.height);
 
-        self.build_bitspace_from_node(self.root, &mut out);
+        // let mut out: BitSpace = BitSpace::with_capacity(self.width * self.height);
 
-        out
+        // self.build_bitspace_from_node(self.root, &mut out);
+        self.build_bitspace_fast(self.root)
+
+        // out
     }
 
     pub fn build_bitspace_from_node(&self, id: NodeId, space_out: &mut BitSpace) {
@@ -229,6 +231,30 @@ impl Universe {
         } else {
             space_out.extend(node.space().into_iter());
         }
+    }
+
+    pub fn build_bitspace_from_node_fast(&self, id: NodeId, ele_out: &mut Vec<u8>) {
+
+        // #[cfg(not(feature = "no-wasm"))]
+        // let _timer = Timer::new("Universe::build_bitspace_from_node");
+        let node = self.get_node(id);
+
+        if let Some(children) = node.children() {
+            self.build_bitspace_from_node_fast((*children).nw(), ele_out);
+            self.build_bitspace_from_node_fast(children.deref().ne(), ele_out);
+            self.build_bitspace_from_node_fast((*children).sw(), ele_out);
+            self.build_bitspace_from_node_fast((*children).se(), ele_out);
+        } else {
+            ele_out.extend(node.space().as_slice());
+        }
+    }
+
+    pub fn build_bitspace_fast(&self, id: NodeId) -> BitSpace {
+        let mut elems: Vec<u8> = vec![];
+        self.build_bitspace_from_node_fast(id, &mut elems);
+
+        BitSpace::from_vec(elems)
+
     }
 
     pub fn set_cells(&mut self, cells: &[(usize, usize)]) {
@@ -414,8 +440,8 @@ impl Universe {
 
     pub fn step(&mut self) {
 
-        // #[cfg(not(feature = "no-wasm"))]
-        // let _timer = Timer::new("Universe::step");
+        #[cfg(not(feature = "no-wasm"))]
+        let _timer = Timer::new("Universe::step");
 
         let mut root_level = self.get_node(self.root).level();
         let mut root_id = self.root;
@@ -461,8 +487,8 @@ impl Universe {
         else if population < 3 {
             self.node(width / 2, height / 2)
         } else if level == 2 {
-            #[cfg(not(feature = "no-wasm"))]
-            let _timer = Timer::new("slow simulation");
+            // #[cfg(not(feature = "no-wasm"))]
+            // let _timer = Timer::new("slow simulation");
 
             self.slow_sim(id)
         } else {
@@ -507,8 +533,10 @@ impl Universe {
         let (w2, h2) = (w / 2, h / 2);
         let (w22, h22) = (w2 / 2, h2 / 2);
 
-        let mut space: BitSpace = BitSpace::with_capacity(w * h);
-        self.build_bitspace_from_node(id, &mut space);
+        // let mut space: BitSpace = BitSpace::with_capacity(w * h);
+        // self.build_bitspace_from_node(id, &mut space);
+
+        let space = self.build_bitspace_fast(id);
 
         let mut next: BitSpace = BitSpace::repeat(false, w2 * h2);
 
