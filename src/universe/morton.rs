@@ -7,7 +7,8 @@ use std::collections::HashMap;
 pub struct MortonSpace {
     width: usize,
     height: usize,
-    table: Vec<Option<usize>>
+    table: Vec<usize>,
+    valid_indexes: Vec<bool>
 }
 
 impl MortonSpace {
@@ -15,26 +16,32 @@ impl MortonSpace {
         MortonSpace {
             width,
             height,
-            table: vec![None; width * height],
+            table: vec![0; width * height],
+            valid_indexes: vec![false; width * height]
         }
     }
 
     pub fn morton2_cache(&mut self, x: usize, y: usize) -> usize {
         let index = x * self.width + y;
-        self.table[index].unwrap_or_else(|| {
-            let r = interleave_with_zeros(x) | (interleave_with_zeros(y) << 1);
-            self.table[index] = Some(r);
-            r
-        })
+        if !self.valid_indexes[index] {
+            self.table[index] = interleave_with_zeros(x) | (interleave_with_zeros(y) << 1);
+            self.valid_indexes[index] = true;
+        }
+        self.table[index]
     }
 
     pub fn morton2(&self, x: usize, y: usize) -> usize {
-        self.table[x * self.width + y].unwrap_or_else(|| interleave_with_zeros(x) | (interleave_with_zeros(y) << 1))
+        let index = x * self.width + y;
+        if !self.valid_indexes[index] {
+            interleave_with_zeros(x) | (interleave_with_zeros(y) << 1)
+        } else {
+            self.table[index]
+        }
     }
 
 
     pub fn valid(&self, x: usize, y: usize) -> bool {
-        self.table[x * self.width + y].is_some()
+        self.valid_indexes[x * self.width + y]
     }
 }
 
