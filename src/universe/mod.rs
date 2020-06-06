@@ -443,9 +443,6 @@ impl Universe {
 
     pub fn step(&mut self) {
 
-        #[cfg(not(feature = "no-wasm"))]
-        let _timer = Timer::new("Universe::step");
-
         let mut root_level = self.get_node(self.root).level();
         let mut root_id = self.root;
 
