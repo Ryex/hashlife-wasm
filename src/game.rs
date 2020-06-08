@@ -1,9 +1,11 @@
 // Game container code
+
 use crate::fps;
 use crate::universe::Universe;
 
 use yew::prelude::*;
 
+//  
 use wasm_bindgen::JsCast;
 
 pub struct KeysPressed {
@@ -124,8 +126,8 @@ impl UniverseModel {
         ctx.stroke();
     }
 
-    fn get_index(&self, row: usize, column: usize) -> usize {
-        row * self.universe.width() + column
+    fn get_index(&self, row: usize, col: usize) -> usize {
+        self.universe.get_morton(row, col)
     }
 
     fn draw_cells(&self, ctx: &web_sys::CanvasRenderingContext2d) {
@@ -210,7 +212,7 @@ impl UniverseModel {
         } else if keys.only_shift() {
             self.universe.set_pulsar(row, col);
         } else {
-            self.universe.toggle_cell(self.universe.get_index(row, col));
+            self.universe.toggle_cell(row, col);
         }
     }
 }
@@ -226,7 +228,7 @@ impl Component for UniverseModel {
             link,
             active: false,
             n_steps: 1,
-            universe: Universe::new(128, 128),
+            universe: Universe::new(256, 256),
             fps: fps::Fps::default(),
             fps_html: String::default(),
             canvas_node_ref: NodeRef::default(),

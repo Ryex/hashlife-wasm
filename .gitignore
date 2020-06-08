@@ -10,3 +10,6 @@ wasm-pack.log
 !/static/*.css
 !/static/*.html
 .cargo-ok
+*.txt
+perf.*
+
