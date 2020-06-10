@@ -171,7 +171,7 @@ impl Hash for Node {
         if let Some(children) = &self.children {
             children.hash(state);
         } else if let Some(space) = &self.space {
-            space.hash(state);
+            space.as_slice().hash(state);
         } else {
             self.rect.hash(state);
             self.population.hash(state);
@@ -190,7 +190,7 @@ impl PartialEq for Node {
             }
         } else if let Some(space) = &self.space {
             if let Some(ospace) = &other.space {
-                space == ospace
+                space.as_slice() == ospace.as_slice()
             } else {
                 false
             }

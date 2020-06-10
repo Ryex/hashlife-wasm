@@ -27,7 +27,7 @@ pub struct Universe {
     arena: Vec<Box<Node>>,
     node_map: NodeMap,
     empty_node_map: HashMap<(usize, usize), NodeId>,
-    non_empty_node_map: HashMap<BitSpace, NodeId>,
+    non_empty_node_map: HashMap<Vec<u8>, NodeId>,
     next_node_map: HashMap<NodeId, NodeId>,
     morton_space: morton::MortonSpace
 }
@@ -100,7 +100,7 @@ impl Universe {
 
     pub fn node_with_bits(&mut self, width: usize, height: usize, space: &BitSpaceSlice) -> NodeId {
 
-        let key: BitSpace = space.to_vec();
+        let key: Vec<u8> = space.as_slice().to_vec();
         if let Some(node_id) = self.non_empty_node_map.get(&key) {
             *node_id
         } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
