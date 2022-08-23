@@ -51,7 +51,6 @@ impl SubNode {
     pub fn new(nw: NodeId, ne: NodeId, sw: NodeId, se: NodeId) -> Self {
         SubNode { nw, ne, sw, se }
     }
-
 }
 
 impl Hash for SubNode {
@@ -65,15 +64,15 @@ impl Hash for SubNode {
 
 impl PartialEq for SubNode {
     fn eq(&self, other: &Self) -> bool {
-        self.nw.index == other.nw.index &&
-        self.ne.index == other.ne.index &&
-        self.sw.index == other.sw.index &&
-        self.se.index == other.se.index
+        self.nw.index == other.nw.index
+            && self.ne.index == other.ne.index
+            && self.sw.index == other.sw.index
+            && self.se.index == other.se.index
     }
 }
 
-pub type BitSpace = bv::BitVec<bv::Msb0, u8>;
-pub type BitSpaceSlice = bv::BitSlice<bv::Msb0, u8>;
+pub type BitSpace = bv::BitVec<u8, bv::Msb0>;
+pub type BitSpaceSlice = bv::BitSlice<u8, bv::Msb0>;
 
 #[derive(Debug, Clone, Eq)]
 pub struct Node {
@@ -163,7 +162,6 @@ impl Node {
     pub fn has_children(&self) -> bool {
         self.children.is_some()
     }
-
 }
 
 impl Hash for Node {
@@ -171,7 +169,7 @@ impl Hash for Node {
         if let Some(children) = &self.children {
             children.hash(state);
         } else if let Some(space) = &self.space {
-            space.as_slice().hash(state);
+            space.as_raw_slice().hash(state);
         } else {
             self.rect.hash(state);
             self.population.hash(state);
@@ -190,16 +188,15 @@ impl PartialEq for Node {
             }
         } else if let Some(space) = &self.space {
             if let Some(ospace) = &other.space {
-                space.as_slice() == ospace.as_slice()
+                space.as_raw_slice() == ospace.as_raw_slice()
             } else {
                 false
             }
         } else {
-            self.rect == other.rect &&
-            self.population == other.population &&
-            self.level == other.level
+            self.rect == other.rect
+                && self.population == other.population
+                && self.level == other.level
         }
-
     }
 }
 

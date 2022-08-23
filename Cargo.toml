@@ -8,19 +8,21 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["wee_alloc"]
+default = ["wee_alloc", "yew"]
 no-wasm = []
-
+yew = ["dep:yew"]
+bevy = ["dep:bevy"]
 
 
 [dependencies]
-yew = { version ="0.16",  features = ["web_sys"] }
+yew = { version = "<=0.18",  optional = true }
 wasm-bindgen = "0.2"
-fixedbitset = "0.3.0"
-bitvec = "0.17.4"
+fixedbitset = "0.4.2"
+bitvec = "1.0.1"
 js-sys = "0.3.39"
-rand = { version = "0.7", features = ["wasm-bindgen"] }
-rand_chacha = "0.2"
+rand = "0.8"
+rand_chacha = "0.3"
+bevy = {version = "0.8", optional = true}
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -34,6 +36,7 @@ console_error_panic_hook = { version = "0.1.1", optional = true }
 #
 # Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
 wee_alloc = { version = "0.4.2", optional = true }
+getrandom = { version = "0.2.7", features = ["js"] }
 
 [dependencies.web-sys]
 version = "0.3.4"
@@ -50,7 +53,7 @@ features = [
 ]
 
 [dev-dependencies]
-wasm-bindgen-test = "0.2"
+wasm-bindgen-test = "0.3"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.

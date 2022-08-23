@@ -5,7 +5,7 @@ use crate::universe::Universe;
 
 use yew::prelude::*;
 
-//  
+//
 use wasm_bindgen::JsCast;
 
 pub struct KeysPressed {
@@ -180,7 +180,7 @@ impl UniverseModel {
         self.draw_game();
 
         let render_frame = self.link.callback(Msg::Tick);
-        let handle = yew::services::RenderService::new().request_animation_frame(render_frame);
+        let handle = yew::services::RenderService::request_animation_frame(render_frame);
 
         // A reference to the new handle must be retained for the next render to run.
         self.render_handle = Some(Box::new(handle));
@@ -238,7 +238,7 @@ impl Component for UniverseModel {
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, msg: Self::Message) -> bool {
         match msg {
             Msg::Random => {
                 self.universe.randomize();
@@ -283,7 +283,7 @@ impl Component for UniverseModel {
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
+    fn change(&mut self, _props: Self::Properties) -> bool {
         // Should only return "true" if new properties are different to
         // previously received properties.
         // This component has no properties so we will always return "false".
@@ -294,7 +294,7 @@ impl Component for UniverseModel {
         let n_steps = self.n_steps;
         html! {
             <section class="game-area">
-                <div> <fps::FpsModel fps_html=self.fps_html.clone() /></div>
+                <div> <fps::FpsModel fps_html={self.fps_html.clone()} /></div>
                 <canvas ref=self.canvas_node_ref.clone()
                     onclick=self.link.callback(|e: web_sys::MouseEvent|{
                         let keys = KeysPressed {

@@ -29,7 +29,7 @@ pub struct Universe {
     empty_node_map: HashMap<(usize, usize), NodeId>,
     non_empty_node_map: HashMap<Vec<u8>, NodeId>,
     next_node_map: HashMap<NodeId, NodeId>,
-    morton_space: morton::MortonSpace
+    morton_space: morton::MortonSpace,
 }
 
 impl Universe {
@@ -55,7 +55,7 @@ impl Universe {
             empty_node_map: HashMap::new(),
             non_empty_node_map: HashMap::new(),
             next_node_map: HashMap::new(),
-            morton_space: morton::MortonSpace::new(width, height)
+            morton_space: morton::MortonSpace::new(width, height),
         };
 
         let root = universe.node(width, height);
@@ -92,15 +92,16 @@ impl Universe {
             ));
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
-            let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
+            let node_id = self.canonicalize(Box::new(Node::with_children(
+                width, height, children, pop, level,
+            )));
             self.empty_node_map.insert(key, node_id);
             node_id
         }
     }
 
     pub fn node_with_bits(&mut self, width: usize, height: usize, space: &BitSpaceSlice) -> NodeId {
-
-        let key: Vec<u8> = space.as_slice().to_vec();
+        let key: Vec<u8> = space.to_bitvec().as_raw_slice().to_vec();
         if let Some(node_id) = self.non_empty_node_map.get(&key) {
             *node_id
         } else if width <= Self::MIN_NODE_WIDTH || height <= Self::MIN_NODE_HEIGHT {
@@ -118,7 +119,9 @@ impl Universe {
             ));
             let pop = self.get_population_children(&children);
             let level = self.get_level_children(&children) + 1;
-            let node_id = self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)));
+            let node_id = self.canonicalize(Box::new(Node::with_children(
+                width, height, children, pop, level,
+            )));
             self.non_empty_node_map.insert(key, node_id);
             node_id
         }
@@ -136,11 +139,17 @@ impl Universe {
         let children = Box::new(SubNode::new(nw, ne, sw, se));
         let pop = self.get_population_children(&children);
         let level = self.get_level_children(&children) + 1;
-        self.canonicalize(Box::new(Node::with_children(width, height, children, pop, level)))
+        self.canonicalize(Box::new(Node::with_children(
+            width, height, children, pop, level,
+        )))
     }
 
+    #[inline]
     pub fn get_node(&self, id: NodeId) -> &Node {
-        self.arena.get(id.index()).expect("NodeId to be valid").deref()
+        self.arena
+            .get(id.index())
+            .expect("NodeId to be valid")
+            .deref()
     }
 
     pub fn get_population(&self, id: NodeId) -> usize {
@@ -204,7 +213,6 @@ impl Universe {
             }
         }
 
-
         self.root = self.node_with_bits(self.width, self.height, &space);
     }
 
@@ -221,7 +229,6 @@ impl Universe {
     }
 
     pub fn build_bitspace_from_node(&self, id: NodeId, space_out: &mut BitSpace) {
-
         // #[cfg(not(feature = "no-wasm"))]
         // let _timer = Timer::new("Universe::build_bitspace_from_node");
         let node = self.get_node(id);
@@ -237,7 +244,6 @@ impl Universe {
     }
 
     pub fn build_bitspace_from_node_fast(&self, id: NodeId, ele_out: &mut Vec<u8>) {
-
         // #[cfg(not(feature = "no-wasm"))]
         // let _timer = Timer::new("Universe::build_bitspace_from_node");
         let node = self.get_node(id);
@@ -248,7 +254,7 @@ impl Universe {
             self.build_bitspace_from_node_fast((*children).sw(), ele_out);
             self.build_bitspace_from_node_fast((*children).se(), ele_out);
         } else {
-            ele_out.extend(node.space().as_slice());
+            ele_out.extend(node.space().as_raw_slice());
         }
     }
 
@@ -257,7 +263,6 @@ impl Universe {
         self.build_bitspace_from_node_fast(id, &mut elems);
 
         BitSpace::from_vec(elems)
-
     }
 
     pub fn set_cells(&mut self, cells: &[(usize, usize)]) {
@@ -396,14 +401,14 @@ impl Universe {
         let west = column - 1;
         let east = column + 1;
 
-        count += space[ms.morton2_cache(north, west)]   as u8;
+        count += space[ms.morton2_cache(north, west)] as u8;
         count += space[ms.morton2_cache(north, column)] as u8;
-        count += space[ms.morton2_cache(north, east)]   as u8;
-        count += space[ms.morton2_cache(row, west)]     as u8;
-        count += space[ms.morton2_cache(row, east)]     as u8;
-        count += space[ms.morton2_cache(south, west)]   as u8;
+        count += space[ms.morton2_cache(north, east)] as u8;
+        count += space[ms.morton2_cache(row, west)] as u8;
+        count += space[ms.morton2_cache(row, east)] as u8;
+        count += space[ms.morton2_cache(south, west)] as u8;
         count += space[ms.morton2_cache(south, column)] as u8;
-        count += space[ms.morton2_cache(south, east)]   as u8;
+        count += space[ms.morton2_cache(south, east)] as u8;
 
         count
     }
@@ -415,7 +420,12 @@ impl Universe {
 
         let br = self.node(w / 2, h / 2);
 
-        let (nw, ne, sw, se) = (children.nw(), children.deref().ne(), children.sw(), children.se());
+        let (nw, ne, sw, se) = (
+            children.nw(),
+            children.deref().ne(),
+            children.sw(),
+            children.se(),
+        );
 
         let nw_ex = self.node_with_children(w, h, br, sw, ne, nw);
         let ne_ex = self.node_with_children(w, h, se, br, ne, nw);
@@ -430,7 +440,12 @@ impl Universe {
         let br = self.node(self.width / 2, self.height / 2);
 
         let children = root.children().clone().expect("root to have children");
-        let (nw, ne, sw, se) = (children.nw(), children.deref().ne(), children.sw(), children.se());
+        let (nw, ne, sw, se) = (
+            children.nw(),
+            children.deref().ne(),
+            children.sw(),
+            children.se(),
+        );
         let (w, h) = (self.width, self.height);
 
         let nw_ex = self.node_with_children(w, h, br, br, br, nw);
@@ -442,7 +457,6 @@ impl Universe {
     }
 
     pub fn step(&mut self) {
-
         let mut root_level = self.get_node(self.root).level();
         let mut root_id = self.root;
 
@@ -468,7 +482,6 @@ impl Universe {
     }
 
     pub fn step_node(&mut self, id: NodeId) -> NodeId {
-
         // return early if we know the result of this node
         if let Some(next) = self.next_node_map.get(&id) {
             return *next;
@@ -542,7 +555,7 @@ impl Universe {
 
         let range: Vec<_> = (0..(w2 * h2)).collect();
 
-        let slice = next.as_mut_slice();
+        let slice = next.as_raw_mut_slice();
         for (cur, chunk) in range.chunks(8).enumerate() {
             let mut ele = 0u8;
             let mut shifts: u8 = 0;
@@ -646,7 +659,6 @@ impl Default for Universe {
         Universe::new(64, 64)
     }
 }
-
 
 extern crate web_sys;
 use web_sys::console;
